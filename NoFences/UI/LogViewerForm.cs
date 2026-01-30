@@ -1,5 +1,3 @@
-using DarkUI.Controls;
-using DarkUI.Forms;
 using Fenceless.Util;
 using Fenceless.Win32;
 using System;
@@ -13,12 +11,12 @@ namespace Fenceless.UI
     public partial class LogViewerForm : Form
     {
         private Panel toolbarPanel;
-        private DarkButton refreshButton;
-        private DarkButton clearButton;
-        private DarkButton saveButton;
-        private DarkCheckBox autoScrollCheckBox;
-        private DarkComboBox logLevelComboBox;
-        private DarkTextBox logTextBox;
+        private Button refreshButton;
+        private Button clearButton;
+        private Button saveButton;
+        private CheckBox autoScrollCheckBox;
+        private ComboBox logLevelComboBox;
+        private TextBox logTextBox;
         private StatusStrip statusStrip;
         private ToolStripStatusLabel statusLabel;
         
@@ -60,50 +58,72 @@ namespace Fenceless.UI
                 BackColor = Color.FromArgb(60, 63, 65)
             };
 
-            refreshButton = new DarkButton
+            refreshButton = new Button
             {
                 Text = "Refresh",
                 Size = new Size(70, 25),
-                Location = new Point(5, 5)
+                Location = new Point(5, 5),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(70, 73, 75),
+                ForeColor = Color.FromArgb(220, 220, 220)
             };
+            refreshButton.FlatAppearance.BorderSize = 1;
+            refreshButton.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
             refreshButton.Click += RefreshButton_Click;
 
-            clearButton = new DarkButton
+            clearButton = new Button
             {
                 Text = "Clear Log",
                 Size = new Size(80, 25),
-                Location = new Point(85, 5)
+                Location = new Point(85, 5),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(70, 73, 75),
+                ForeColor = Color.FromArgb(220, 220, 220)
             };
+            clearButton.FlatAppearance.BorderSize = 1;
+            clearButton.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
             clearButton.Click += ClearButton_Click;
 
-            saveButton = new DarkButton
+            saveButton = new Button
             {
                 Text = "Save As...",
                 Size = new Size(80, 25),
-                Location = new Point(175, 5)
+                Location = new Point(175, 5),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(70, 73, 75),
+                ForeColor = Color.FromArgb(220, 220, 220)
             };
+            saveButton.FlatAppearance.BorderSize = 1;
+            saveButton.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
             saveButton.Click += SaveButton_Click;
 
-            autoScrollCheckBox = new DarkCheckBox
+            autoScrollCheckBox = new CheckBox
             {
                 Text = "Auto-scroll",
                 Checked = true,
                 Location = new Point(270, 8),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            var logLevelLabel = new DarkLabel
+            var logLevelLabel = new Label
             {
                 Text = "Filter:",
                 Location = new Point(380, 8),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            logLevelComboBox = new DarkComboBox
+            logLevelComboBox = new ComboBox
             {
                 Width = 100,
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                Location = new Point(420, 5)
+                Location = new Point(420, 5),
+                FlatStyle = FlatStyle.Flat,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(50, 53, 55)
             };
             logLevelComboBox.Items.AddRange(new[] { "All", "Debug", "Info", "Warning", "Error", "Critical" });
             logLevelComboBox.SelectedIndex = 0;
@@ -114,7 +134,7 @@ namespace Fenceless.UI
             });
 
             // Create log text box with dark styling
-            logTextBox = new DarkTextBox
+            logTextBox = new TextBox
             {
                 Multiline = true,
                 ScrollBars = ScrollBars.Both,

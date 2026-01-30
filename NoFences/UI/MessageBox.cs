@@ -5,21 +5,17 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using DarkUI;
-using DarkUI.Controls;
-using DarkUI.Data.Enums;
-using DarkUI.Forms;
 using Fenceless.Win32;
 
 namespace Fenceless.UI
 {
-    public class CustomMessageBox : DarkForm
+    public class CustomMessageBox : Form
     {
-        private DarkLabel messageLabel;
+        private Label messageLabel;
         private Panel buttonPanel;
         private Panel headerPanel;
         private Panel contentPanel;
-        private DarkButton closeButton;
+        private Button closeButton;
         private bool isDragging = false;
         private Point lastCursor;
         private Point lastForm;
@@ -77,26 +73,29 @@ namespace Fenceless.UI
             };
 
             // Create title label
-            var titleLabel = new DarkLabel
+            var titleLabel = new Label
             {
                 Text = title,
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 0, 0)
+                Padding = new Padding(10, 0, 0, 0),
+                BackColor = Color.Transparent
             };
 
             // Create close button
-            closeButton = new DarkButton
+            closeButton = new Button
             {
                 Text = "✕",
                 Size = new Size(35, 35),
                 Dock = DockStyle.Right,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
                 BackColor = Color.FromArgb(45, 45, 48),
-                ForeColor = Color.White
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat
             };
+            closeButton.FlatAppearance.BorderSize = 0;
             closeButton.Click += CloseButton_Click;
             closeButton.MouseEnter += (s, e) => closeButton.BackColor = Color.FromArgb(232, 17, 35);
             closeButton.MouseLeave += (s, e) => closeButton.BackColor = Color.FromArgb(45, 45, 48);
@@ -117,20 +116,21 @@ namespace Fenceless.UI
             };
 
             // Create message label
-            messageLabel = new DarkLabel
+            messageLabel = new Label
             {
                 Text = message,
                 ForeColor = Color.FromArgb(220, 220, 220),
                 Font = new Font("Segoe UI", 9F),
                 AutoSize = false,
                 Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft
+                TextAlign = ContentAlignment.MiddleLeft,
+                BackColor = Color.Transparent
             };
 
             // Handle text wrapping
             messageLabel.Paint += (s, e) =>
             {
-                var label = s as DarkLabel;
+                var label = s as Label;
                 if (label != null)
                 {
                     var rect = new Rectangle(0, 0, label.Width, label.Height);
@@ -160,7 +160,7 @@ namespace Fenceless.UI
                 Padding = new Padding(10)
             };
 
-            var buttonList = new List<DarkButton>();
+            var buttonList = new List<Button>();
             int buttonWidth = 80;
             int buttonHeight = 30;
             int buttonSpacing = 10;
@@ -231,15 +231,20 @@ namespace Fenceless.UI
             this.ResumeLayout(false);
         }
 
-        private DarkButton CreateButton(string text, DialogResult result, int width, int height)
+        private Button CreateButton(string text, DialogResult result, int width, int height)
         {
-            var button = new DarkButton
+            var button = new Button
             {
                 Text = text,
                 Size = new Size(width, height),
                 DialogResult = result,
-                Anchor = AnchorStyles.Bottom | AnchorStyles.Right
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(70, 73, 75),
+                ForeColor = Color.FromArgb(220, 220, 220)
             };
+            button.FlatAppearance.BorderSize = 1;
+            button.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
 
             button.Click += (s, e) =>
             {
@@ -258,7 +263,7 @@ namespace Fenceless.UI
             headerPanel.MouseUp += HeaderPanel_MouseUp;
 
             // Also make the title label draggable
-            var titleLabel = headerPanel.Controls.OfType<DarkLabel>().FirstOrDefault();
+            var titleLabel = headerPanel.Controls.OfType<Label>().FirstOrDefault();
             if (titleLabel != null)
             {
                 titleLabel.MouseDown += HeaderPanel_MouseDown;

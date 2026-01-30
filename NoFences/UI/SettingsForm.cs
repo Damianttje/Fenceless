@@ -1,5 +1,3 @@
-using DarkUI.Controls;
-using DarkUI.Forms;
 using Fenceless.Model;
 using Fenceless.Util;
 using Fenceless.Win32;
@@ -57,78 +55,78 @@ namespace Fenceless.UI
         private TabPage fencesTab;
 
         // Global Settings Controls
-        private DarkCheckBox chkAutoSave;
-        private DarkNumericUpDown nudAutoSaveInterval;
-        private DarkCheckBox chkShowTooltips;
-        private DarkCheckBox chkEnableAnimations;
-        private DarkCheckBox chkStartWithWindows;
-        private DarkComboBox cmbLogLevel;
-        private DarkCheckBox chkEnableFileLogging;
-        private DarkTextBox txtToggleTransparencyShortcut;
-        private DarkTextBox txtToggleAutoHideShortcut;
-        private DarkTextBox txtShowAllFencesShortcut;
-        private DarkTextBox txtCreateNewFenceShortcut;
-        private DarkTextBox txtOpenSettingsShortcut;
-        private DarkTextBox txtToggleLockShortcut;
-        private DarkTextBox txtMinimizeAllFencesShortcut;
-        private DarkTextBox txtRefreshFencesShortcut;
+        private CheckBox chkAutoSave;
+        private NumericUpDown nudAutoSaveInterval;
+        private CheckBox chkShowTooltips;
+        private CheckBox chkEnableAnimations;
+        private CheckBox chkStartWithWindows;
+        private ComboBox cmbLogLevel;
+        private CheckBox chkEnableFileLogging;
+        private TextBox txtToggleTransparencyShortcut;
+        private TextBox txtToggleAutoHideShortcut;
+        private TextBox txtShowAllFencesShortcut;
+        private TextBox txtCreateNewFenceShortcut;
+        private TextBox txtOpenSettingsShortcut;
+        private TextBox txtToggleLockShortcut;
+        private TextBox txtMinimizeAllFencesShortcut;
+        private TextBox txtRefreshFencesShortcut;
 
         // Default Settings Controls
-        private DarkNumericUpDown nudDefaultFenceWidth;
-        private DarkNumericUpDown nudDefaultFenceHeight;
-        private DarkNumericUpDown nudDefaultTitleHeight;
-        private DarkNumericUpDown nudDefaultTransparency;
-        private DarkCheckBox chkDefaultAutoHide;
-        private DarkNumericUpDown nudDefaultAutoHideDelay;
-        private DarkButton btnDefaultBackgroundColor;
-        private DarkNumericUpDown nudDefaultBackgroundTransparency;
-        private DarkButton btnDefaultTitleBackgroundColor;
-        private DarkNumericUpDown nudDefaultTitleBackgroundTransparency;
-        private DarkButton btnDefaultTextColor;
-        private DarkNumericUpDown nudDefaultTextTransparency;
-        private DarkButton btnDefaultBorderColor;
-        private DarkNumericUpDown nudDefaultBorderTransparency;
-        private DarkNumericUpDown nudDefaultBorderWidth;
-        private DarkNumericUpDown nudDefaultCornerRadius;
-        private DarkCheckBox chkDefaultShowShadow;
-        private DarkComboBox cmbDefaultIconSize;
-        private DarkNumericUpDown nudDefaultItemSpacing;
+        private NumericUpDown nudDefaultFenceWidth;
+        private NumericUpDown nudDefaultFenceHeight;
+        private NumericUpDown nudDefaultTitleHeight;
+        private NumericUpDown nudDefaultTransparency;
+        private CheckBox chkDefaultAutoHide;
+        private NumericUpDown nudDefaultAutoHideDelay;
+        private Button btnDefaultBackgroundColor;
+        private NumericUpDown nudDefaultBackgroundTransparency;
+        private Button btnDefaultTitleBackgroundColor;
+        private NumericUpDown nudDefaultTitleBackgroundTransparency;
+        private Button btnDefaultTextColor;
+        private NumericUpDown nudDefaultTextTransparency;
+        private Button btnDefaultBorderColor;
+        private NumericUpDown nudDefaultBorderTransparency;
+        private NumericUpDown nudDefaultBorderWidth;
+        private NumericUpDown nudDefaultCornerRadius;
+        private CheckBox chkDefaultShowShadow;
+        private ComboBox cmbDefaultIconSize;
+        private NumericUpDown nudDefaultItemSpacing;
 
         // Fence Management Controls
         private ListBox lstFences;
-        private DarkGroupBox grpFenceSettings;
-        private DarkTextBox txtFenceName;
-        private DarkNumericUpDown nudFenceTransparency;
-        private DarkCheckBox chkFenceAutoHide;
-        private DarkNumericUpDown nudFenceAutoHideDelay;
-        private DarkCheckBox chkFenceLocked;
-        private DarkCheckBox chkFenceCanMinify;
-        private DarkNumericUpDown nudFenceWidth;
-        private DarkNumericUpDown nudFenceHeight;
-        private DarkNumericUpDown nudFenceTitleHeight;
-        private DarkButton btnFenceBackgroundColor;
-        private DarkNumericUpDown nudFenceBackgroundTransparency;
-        private DarkButton btnFenceTitleBackgroundColor;
-        private DarkNumericUpDown nudFenceTitleBackgroundTransparency;
-        private DarkButton btnFenceTextColor;
-        private DarkNumericUpDown nudFenceTextTransparency;
-        private DarkButton btnFenceBorderColor;
-        private DarkNumericUpDown nudFenceBorderTransparency;
-        private DarkNumericUpDown nudFenceBorderWidth;
-        private DarkNumericUpDown nudFenceCornerRadius;
-        private DarkCheckBox chkFenceShowShadow;
-        private DarkComboBox cmbFenceIconSize;
-        private DarkNumericUpDown nudFenceItemSpacing;
+        private GroupBox grpFenceSettings;
+        private TextBox txtFenceName;
+        private NumericUpDown nudFenceTransparency;
+        private CheckBox chkFenceAutoHide;
+        private NumericUpDown nudFenceAutoHideDelay;
+        private CheckBox chkFenceLocked;
+        private CheckBox chkFenceCanMinify;
+        private NumericUpDown nudFenceWidth;
+        private NumericUpDown nudFenceHeight;
+        private NumericUpDown nudFenceTitleHeight;
+        private Button btnFenceBackgroundColor;
+        private NumericUpDown nudFenceBackgroundTransparency;
+        private Button btnFenceTitleBackgroundColor;
+        private NumericUpDown nudFenceTitleBackgroundTransparency;
+        private Button btnFenceTextColor;
+        private NumericUpDown nudFenceTextTransparency;
+        private Button btnFenceBorderColor;
+        private NumericUpDown nudFenceBorderTransparency;
+        private NumericUpDown nudFenceBorderWidth;
+        private NumericUpDown nudFenceCornerRadius;
+        private CheckBox chkFenceShowShadow;
+        private ComboBox cmbFenceIconSize;
+        private NumericUpDown nudFenceItemSpacing;
 
         // Buttons
-        private DarkButton btnOK;
-        private DarkButton btnCancel;
-        private DarkButton btnApply;
-        private DarkButton btnRefreshFences;
-        private DarkButton btnHighlightFence;
-        private DarkButton btnAddFence;
-        private DarkButton btnResetToDefaults;
-        private DarkButton btnSetAsDefaults;
+        private Button btnOK;
+        private Button btnCancel;
+        private Button btnApply;
+        private Button btnRefreshFences;
+        private Button btnHighlightFence;
+        private Button btnAddFence;
+        private Button btnResetToDefaults;
+        private Button btnSetAsDefaults;
 
         #endregion
 
@@ -182,54 +180,69 @@ namespace Fenceless.UI
             };
 
             // Application Settings Group
-            var grpApp = new DarkGroupBox
+            var grpApp = new GroupBox
             {
                 Text = "Application Settings",
                 Location = new Point(10, 10),
-                Size = new Size(450, 150)
+                Size = new Size(450, 150),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(60, 63, 65)
             };
 
-            chkAutoSave = new DarkCheckBox
+            chkAutoSave = new CheckBox
             {
                 Text = "Auto Save",
                 Location = new Point(10, 25),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            var lblAutoSaveInterval = new DarkLabel
+            var lblAutoSaveInterval = new Label
             {
                 Text = "Auto Save Interval (seconds):",
                 Location = new Point(10, 55),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            nudAutoSaveInterval = new DarkNumericUpDown
+            nudAutoSaveInterval = new NumericUpDown
             {
                 Location = new Point(200, 52),
                 Width = 100,
                 Minimum = 5,
-                Maximum = 300
+                Maximum = 300,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(50, 53, 55),
+                BorderStyle = BorderStyle.FixedSingle
             };
 
-            chkShowTooltips = new DarkCheckBox
+            chkShowTooltips = new CheckBox
             {
                 Text = "Show Tooltips",
                 Location = new Point(10, 85),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            chkEnableAnimations = new DarkCheckBox
+            chkEnableAnimations = new CheckBox
             {
                 Text = "Enable Animations",
                 Location = new Point(10, 115),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            chkStartWithWindows = new DarkCheckBox
+            chkStartWithWindows = new CheckBox
             {
                 Text = "Start with Windows",
                 Location = new Point(200, 25),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
             grpApp.Controls.AddRange(new Control[] {
@@ -238,33 +251,42 @@ namespace Fenceless.UI
             });
 
             // Logging Settings Group
-            var grpLogging = new DarkGroupBox
+            var grpLogging = new GroupBox
             {
                 Text = "Logging Settings",
                 Location = new Point(10, 170),
-                Size = new Size(450, 100)
+                Size = new Size(450, 100),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(60, 63, 65)
             };
 
-            var lblLogLevel = new DarkLabel
+            var lblLogLevel = new Label
             {
                 Text = "Log Level:",
                 Location = new Point(10, 25),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            cmbLogLevel = new DarkComboBox
+            cmbLogLevel = new ComboBox
             {
                 Location = new Point(100, 22),
                 Width = 120,
-                DropDownStyle = ComboBoxStyle.DropDownList
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(50, 53, 55),
+                FlatStyle = FlatStyle.Flat
             };
             cmbLogLevel.Items.AddRange(new[] { "Debug", "Info", "Warning", "Error", "Critical" });
 
-            chkEnableFileLogging = new DarkCheckBox
+            chkEnableFileLogging = new CheckBox
             {
                 Text = "Enable File Logging",
                 Location = new Point(10, 55),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
             grpLogging.Controls.AddRange(new Control[] {
@@ -272,11 +294,13 @@ namespace Fenceless.UI
             });
 
             // Global Hotkeys Group
-            var grpHotkeys = new DarkGroupBox
+            var grpHotkeys = new GroupBox
             {
                 Text = "Global Hotkeys",
                 Location = new Point(480, 10),
-                Size = new Size(400, 260)
+                Size = new Size(400, 260),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(60, 63, 65)
             };
 
             CreateHotkeyControls(grpHotkeys);
@@ -285,7 +309,7 @@ namespace Fenceless.UI
             globalTab.Controls.Add(scrollPanel);
         }
 
-        private void CreateHotkeyControls(DarkGroupBox parent)
+        private void CreateHotkeyControls(GroupBox parent)
         {
             var hotkeys = new[]
             {
@@ -302,26 +326,37 @@ namespace Fenceless.UI
             int yPos = 25;
             foreach (var (label, controlName) in hotkeys)
             {
-                var lbl = new DarkLabel
+                var lbl = new Label
                 {
                     Text = label,
                     Location = new Point(10, yPos + 3),
-                    Size = new Size(150, 20)
+                    Size = new Size(150, 20),
+                    ForeColor = Color.FromArgb(220, 220, 220),
+                    BackColor = Color.Transparent
                 };
 
-                var txt = new DarkTextBox
+                var txt = new TextBox
                 {
                     Location = new Point(170, yPos),
                     Width = 150,
-                    ReadOnly = true
+                    ReadOnly = true,
+                    ForeColor = Color.FromArgb(220, 220, 220),
+                    BackColor = Color.FromArgb(50, 53, 55),
+                    BorderStyle = BorderStyle.FixedSingle,
+                    Text = ""
                 };
 
-                var btnClear = new DarkButton
+                var btnClear = new Button
                 {
                     Text = "Clear",
                     Location = new Point(330, yPos),
-                    Size = new Size(50, 23)
+                    Size = new Size(50, 23),
+                    FlatStyle = FlatStyle.Flat,
+                    BackColor = Color.FromArgb(70, 73, 75),
+                    ForeColor = Color.FromArgb(220, 220, 220)
                 };
+                btnClear.FlatAppearance.BorderSize = 1;
+                btnClear.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
 
                 btnClear.Click += (s, e) => txt.Text = "";
 
@@ -353,11 +388,13 @@ namespace Fenceless.UI
             };
 
             // Size Settings Group
-            var grpSize = new DarkGroupBox
+            var grpSize = new GroupBox
             {
                 Text = "Default Size Settings",
                 Location = new Point(10, 10),
-                Size = new Size(400, 150)
+                Size = new Size(400, 150),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(60, 63, 65)
             };
 
             CreateLabeledNumericUpDown(grpSize, "Width:", out nudDefaultFenceWidth, 200, 2000, 10, 25);
@@ -365,20 +402,24 @@ namespace Fenceless.UI
             CreateLabeledNumericUpDown(grpSize, "Title Height:", out nudDefaultTitleHeight, 16, 100, 10, 85);
 
             // Appearance Settings Group
-            var grpAppearance = new DarkGroupBox
+            var grpAppearance = new GroupBox
             {
                 Text = "Default Appearance Settings",
                 Location = new Point(10, 170),
-                Size = new Size(400, 150)
+                Size = new Size(400, 150),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(60, 63, 65)
             };
 
             CreateLabeledNumericUpDown(grpAppearance, "Transparency (%):", out nudDefaultTransparency, 25, 100, 10, 25);
 
-            chkDefaultAutoHide = new DarkCheckBox
+            chkDefaultAutoHide = new CheckBox
             {
                 Text = "Auto Hide",
                 Location = new Point(10, 55),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
             CreateLabeledNumericUpDown(grpAppearance, "Auto Hide Delay (ms):", out nudDefaultAutoHideDelay, 500, 10000, 10, 85);
@@ -386,11 +427,13 @@ namespace Fenceless.UI
             grpAppearance.Controls.Add(chkDefaultAutoHide);
 
             // Color Settings Group
-            var grpColors = new DarkGroupBox
+            var grpColors = new GroupBox
             {
                 Text = "Default Color Settings",
                 Location = new Point(420, 10),
-                Size = new Size(450, 310)
+                Size = new Size(450, 310),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(60, 63, 65)
             };
 
             CreateColorSetting(grpColors, "Background Color:", out btnDefaultBackgroundColor, out nudDefaultBackgroundTransparency, 10, 25);
@@ -399,35 +442,44 @@ namespace Fenceless.UI
             CreateColorSetting(grpColors, "Border Color:", out btnDefaultBorderColor, out nudDefaultBorderTransparency, 10, 205);
 
             // Style Settings Group
-            var grpStyle = new DarkGroupBox
+            var grpStyle = new GroupBox
             {
                 Text = "Default Style Settings",
                 Location = new Point(10, 330),
-                Size = new Size(400, 200)
+                Size = new Size(400, 200),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(60, 63, 65)
             };
 
             CreateLabeledNumericUpDown(grpStyle, "Border Width:", out nudDefaultBorderWidth, 0, 10, 10, 25);
             CreateLabeledNumericUpDown(grpStyle, "Corner Radius:", out nudDefaultCornerRadius, 0, 20, 10, 55);
 
-            chkDefaultShowShadow = new DarkCheckBox
+            chkDefaultShowShadow = new CheckBox
             {
                 Text = "Show Shadow",
                 Location = new Point(10, 85),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            var lblIconSize = new DarkLabel
+            var lblIconSize = new Label
             {
                 Text = "Icon Size:",
                 Location = new Point(10, 118),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            cmbDefaultIconSize = new DarkComboBox
+            cmbDefaultIconSize = new ComboBox
             {
                 Location = new Point(120, 115),
                 Width = 100,
-                DropDownStyle = ComboBoxStyle.DropDownList
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(50, 53, 55),
+                FlatStyle = FlatStyle.Flat
             };
             cmbDefaultIconSize.Items.AddRange(new[] { "16", "24", "32", "48", "64" });
 
@@ -464,11 +516,13 @@ namespace Fenceless.UI
             };
 
             // Fence list group box
-            var fenceListGroup = new DarkGroupBox
+            var fenceListGroup = new GroupBox
             {
                 Text = "Active Fences",
                 Dock = DockStyle.Fill,
-                Padding = new Padding(5)
+                Padding = new Padding(5),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(60, 63, 65)
             };
 
             // Container for buttons and list with proper layout - buttons first (higher)
@@ -502,26 +556,41 @@ namespace Fenceless.UI
             buttonPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
             // Create buttons with proper sizing
-            btnRefreshFences = new DarkButton
+            btnRefreshFences = new Button
             {
                 Text = "Refresh",
                 Dock = DockStyle.Fill,
-                Margin = new Padding(1)
+                Margin = new Padding(1),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(70, 73, 75),
+                ForeColor = Color.FromArgb(220, 220, 220)
             };
+            btnRefreshFences.FlatAppearance.BorderSize = 1;
+            btnRefreshFences.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
 
-            btnHighlightFence = new DarkButton
+            btnHighlightFence = new Button
             {
                 Text = "Highlight",
                 Dock = DockStyle.Fill,
-                Margin = new Padding(1)
+                Margin = new Padding(1),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(70, 73, 75),
+                ForeColor = Color.FromArgb(220, 220, 220)
             };
+            btnHighlightFence.FlatAppearance.BorderSize = 1;
+            btnHighlightFence.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
 
-            btnAddFence = new DarkButton
+            btnAddFence = new Button
             {
                 Text = "Add",
                 Dock = DockStyle.Fill,
-                Margin = new Padding(1)
+                Margin = new Padding(1),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(70, 73, 75),
+                ForeColor = Color.FromArgb(220, 220, 220)
             };
+            btnAddFence.FlatAppearance.BorderSize = 1;
+            btnAddFence.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
 
             // Add buttons to button panel
             buttonPanel.Controls.Add(btnRefreshFences, 0, 0);
@@ -549,12 +618,14 @@ namespace Fenceless.UI
             leftContainer.Controls.Add(fenceListGroup);
 
             // Right panel - Fence settings
-            grpFenceSettings = new DarkGroupBox
+            grpFenceSettings = new GroupBox
             {
                 Text = "Fence Settings",
                 Dock = DockStyle.Fill,
                 Enabled = false,
-                Margin = new Padding(5, 0, 0, 0)
+                Margin = new Padding(5, 0, 0, 0),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(60, 63, 65)
             };
 
             CreateFenceSettingsControls();
@@ -578,49 +649,62 @@ namespace Fenceless.UI
             };
 
             // Basic Settings Group
-            var grpBasic = new DarkGroupBox
+            var grpBasic = new GroupBox
             {
                 Text = "Basic Settings",
                 Location = new Point(0, 0),
-                Size = new Size(400, 220)
+                Size = new Size(400, 220),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(60, 63, 65)
             };
 
-            var lblName = new DarkLabel
+            var lblName = new Label
             {
                 Text = "Name:",
                 Location = new Point(10, 25),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            txtFenceName = new DarkTextBox
+            txtFenceName = new TextBox
             {
                 Location = new Point(120, 22),
-                Width = 200
+                Width = 200,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(50, 53, 55),
+                BorderStyle = BorderStyle.FixedSingle
             };
 
             CreateLabeledNumericUpDown(grpBasic, "Transparency (%):", out nudFenceTransparency, 25, 100, 10, 55);
 
-            chkFenceAutoHide = new DarkCheckBox
+            chkFenceAutoHide = new CheckBox
             {
                 Text = "Auto Hide",
                 Location = new Point(10, 85),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
             CreateLabeledNumericUpDown(grpBasic, "Auto Hide Delay (ms):", out nudFenceAutoHideDelay, 500, 10000, 10, 115);
 
-            chkFenceLocked = new DarkCheckBox
+            chkFenceLocked = new CheckBox
             {
                 Text = "Locked",
                 Location = new Point(10, 145),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            chkFenceCanMinify = new DarkCheckBox
+            chkFenceCanMinify = new CheckBox
             {
                 Text = "Can Minify",
                 Location = new Point(150, 145),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
             grpBasic.Controls.AddRange(new Control[] {
@@ -628,11 +712,13 @@ namespace Fenceless.UI
             });
 
             // Size Settings Group
-            var grpFenceSize = new DarkGroupBox
+            var grpFenceSize = new GroupBox
             {
                 Text = "Size Settings",
                 Location = new Point(0, 230),
-                Size = new Size(400, 120)
+                Size = new Size(400, 120),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(60, 63, 65)
             };
 
             CreateLabeledNumericUpDown(grpFenceSize, "Width:", out nudFenceWidth, 200, 2000, 10, 25);
@@ -640,11 +726,13 @@ namespace Fenceless.UI
             CreateLabeledNumericUpDown(grpFenceSize, "Title Height:", out nudFenceTitleHeight, 16, 100, 10, 85);
 
             // Color Settings Group
-            var grpFenceColors = new DarkGroupBox
+            var grpFenceColors = new GroupBox
             {
                 Text = "Color Settings",
                 Location = new Point(410, 0),
-                Size = new Size(450, 350)
+                Size = new Size(450, 350),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(60, 63, 65)
             };
 
             CreateColorSetting(grpFenceColors, "Background Color:", out btnFenceBackgroundColor, out nudFenceBackgroundTransparency, 10, 25);
@@ -653,35 +741,44 @@ namespace Fenceless.UI
             CreateColorSetting(grpFenceColors, "Border Color:", out btnFenceBorderColor, out nudFenceBorderTransparency, 10, 205);
 
             // Style Settings Group
-            var grpFenceStyle = new DarkGroupBox
+            var grpFenceStyle = new GroupBox
             {
                 Text = "Style Settings",
                 Location = new Point(410, 360),
-                Size = new Size(450, 200)
+                Size = new Size(450, 200),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(60, 63, 65)
             };
 
             CreateLabeledNumericUpDown(grpFenceStyle, "Border Width:", out nudFenceBorderWidth, 0, 10, 10, 25);
             CreateLabeledNumericUpDown(grpFenceStyle, "Corner Radius:", out nudFenceCornerRadius, 0, 20, 10, 55);
 
-            chkFenceShowShadow = new DarkCheckBox
+            chkFenceShowShadow = new CheckBox
             {
                 Text = "Show Shadow",
                 Location = new Point(10, 85),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            var lblFenceIconSize = new DarkLabel
+            var lblFenceIconSize = new Label
             {
                 Text = "Icon Size:",
                 Location = new Point(10, 118),
-                AutoSize = true
+                AutoSize = true,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            cmbFenceIconSize = new DarkComboBox
+            cmbFenceIconSize = new ComboBox
             {
                 Location = new Point(120, 115),
                 Width = 100,
-                DropDownStyle = ComboBoxStyle.DropDownList
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(50, 53, 55),
+                FlatStyle = FlatStyle.Flat
             };
             cmbFenceIconSize.Items.AddRange(new[] { "16", "24", "32", "48", "64" });
 
@@ -690,19 +787,29 @@ namespace Fenceless.UI
             grpFenceStyle.Controls.AddRange(new Control[] { chkFenceShowShadow, lblFenceIconSize, cmbFenceIconSize });
 
             // Action buttons
-            btnResetToDefaults = new DarkButton
+            btnResetToDefaults = new Button
             {
                 Text = "Reset to Defaults",
                 Location = new Point(10, 570),
-                Size = new Size(150, 30)
+                Size = new Size(150, 30),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(70, 73, 75),
+                ForeColor = Color.FromArgb(220, 220, 220)
             };
+            btnResetToDefaults.FlatAppearance.BorderSize = 1;
+            btnResetToDefaults.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
 
-            btnSetAsDefaults = new DarkButton
+            btnSetAsDefaults = new Button
             {
                 Text = "Set as Defaults",
                 Location = new Point(170, 570),
-                Size = new Size(150, 30)
+                Size = new Size(150, 30),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(70, 73, 75),
+                ForeColor = Color.FromArgb(220, 220, 220)
             };
+            btnSetAsDefaults.FlatAppearance.BorderSize = 1;
+            btnSetAsDefaults.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
 
             scrollPanel.Controls.AddRange(new Control[] {
                 grpBasic, grpFenceSize, grpFenceColors, grpFenceStyle,
@@ -721,31 +828,46 @@ namespace Fenceless.UI
                 BackColor = Color.FromArgb(60, 63, 65)
             };
 
-            btnApply = new DarkButton
+            btnApply = new Button
             {
                 Text = "Apply",
                 Size = new Size(80, 30),
-                Anchor = AnchorStyles.Bottom | AnchorStyles.Right
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(70, 73, 75),
+                ForeColor = Color.FromArgb(220, 220, 220)
             };
             btnApply.Location = new Point(buttonPanel.Width - 260, 10);
+            btnApply.FlatAppearance.BorderSize = 1;
+            btnApply.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
 
-            btnOK = new DarkButton
+            btnOK = new Button
             {
                 Text = "OK",
                 Size = new Size(80, 30),
                 Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
-                DialogResult = DialogResult.OK
+                DialogResult = DialogResult.OK,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(70, 73, 75),
+                ForeColor = Color.FromArgb(220, 220, 220)
             };
             btnOK.Location = new Point(buttonPanel.Width - 170, 10);
+            btnOK.FlatAppearance.BorderSize = 1;
+            btnOK.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
 
-            btnCancel = new DarkButton
+            btnCancel = new Button
             {
                 Text = "Cancel",
                 Size = new Size(80, 30),
                 Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
-                DialogResult = DialogResult.Cancel
+                DialogResult = DialogResult.Cancel,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(70, 73, 75),
+                ForeColor = Color.FromArgb(220, 220, 220)
             };
             btnCancel.Location = new Point(buttonPanel.Width - 80, 10);
+            btnCancel.FlatAppearance.BorderSize = 1;
+            btnCancel.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
 
             buttonPanel.Controls.AddRange(new Control[] { btnApply, btnOK, btnCancel });
             this.Controls.Add(buttonPanel);
@@ -754,57 +876,74 @@ namespace Fenceless.UI
             this.CancelButton = btnCancel;
         }
 
-        private void CreateLabeledNumericUpDown(Control parent, string labelText, out DarkNumericUpDown numericUpDown,
+        private void CreateLabeledNumericUpDown(Control parent, string labelText, out NumericUpDown numericUpDown,
             decimal min, decimal max, int x, int y)
         {
-            var label = new DarkLabel
+            var label = new Label
             {
                 Text = labelText,
                 Location = new Point(x, y + 3),
-                Size = new Size(110, 20)
+                Size = new Size(110, 20),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            numericUpDown = new DarkNumericUpDown
+            numericUpDown = new NumericUpDown
             {
                 Location = new Point(x + 120, y),
                 Width = 100,
                 Minimum = min,
-                Maximum = max
+                Maximum = max,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(50, 53, 55),
+                BorderStyle = BorderStyle.FixedSingle
             };
 
             parent.Controls.AddRange(new Control[] { label, numericUpDown });
         }
 
-        private void CreateColorSetting(Control parent, string labelText, out DarkButton colorButton,
-            out DarkNumericUpDown transparencyUpDown, int x, int y)
+        private void CreateColorSetting(Control parent, string labelText, out Button colorButton,
+            out NumericUpDown transparencyUpDown, int x, int y)
         {
-            var label = new DarkLabel
+            var label = new Label
             {
                 Text = labelText,
                 Location = new Point(x, y + 3),
-                Size = new Size(130, 20)
+                Size = new Size(130, 20),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            colorButton = new DarkButton
+            colorButton = new Button
             {
                 Text = "Choose Color",
                 Location = new Point(x + 140, y),
-                Size = new Size(120, 23)
+                Size = new Size(120, 23),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(70, 73, 75),
+                ForeColor = Color.FromArgb(220, 220, 220)
             };
+            colorButton.FlatAppearance.BorderSize = 1;
+            colorButton.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
 
-            var transparencyLabel = new DarkLabel
+            var transparencyLabel = new Label
             {
                 Text = "Transparency (%):",
                 Location = new Point(x + 270, y + 3),
-                Size = new Size(100, 20)
+                Size = new Size(100, 20),
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.Transparent
             };
 
-            transparencyUpDown = new DarkNumericUpDown
+            transparencyUpDown = new NumericUpDown
             {
                 Location = new Point(x + 380, y),
                 Width = 60,
                 Minimum = 0,
-                Maximum = 100
+                Maximum = 100,
+                ForeColor = Color.FromArgb(220, 220, 220),
+                BackColor = Color.FromArgb(50, 53, 55),
+                BorderStyle = BorderStyle.FixedSingle
             };
 
             parent.Controls.AddRange(new Control[] { label, colorButton, transparencyLabel, transparencyUpDown });
@@ -1037,7 +1176,7 @@ namespace Fenceless.UI
             }
         }
 
-        private void ShowColorDialog(DarkButton button, string propertyName, bool isFenceProperty = false)
+        private void ShowColorDialog(Button button, string propertyName, bool isFenceProperty = false)
         {
             using (var colorDialog = new ColorDialog())
             {
@@ -1059,7 +1198,7 @@ namespace Fenceless.UI
             }
         }
 
-        private void SetColorButton(DarkButton button, int argbColor)
+        private void SetColorButton(Button button, int argbColor)
         {
             var color = Color.FromArgb(argbColor);
             button.BackColor = color;
