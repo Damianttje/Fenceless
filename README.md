@@ -1,7 +1,5 @@
 # Fenceless
 
-**Note: Development has been stopped.**
-
 An improved fork of [NoFences](https://github.com/Twometer/NoFences) - organize your desktop with transparent containers.
 
 ## Features
