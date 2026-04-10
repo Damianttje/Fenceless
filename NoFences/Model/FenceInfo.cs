@@ -118,6 +118,12 @@ namespace Fenceless.Model
 
         public List<string> Files { get; set; } = new List<string>();
 
+        public string SortColumn { get; set; } = "";
+
+        public bool SortAscending { get; set; } = true;
+
+        public string SearchFilter { get; set; } = "";
+
         public FenceInfo()
         {
 

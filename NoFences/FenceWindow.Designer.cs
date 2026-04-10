@@ -24,6 +24,11 @@
             this.moveItemDownToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
+            this.sortByNameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.sortByTypeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.sortByDateToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
+            this.searchToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.lockedToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.minifyToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.settingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -44,6 +49,11 @@
             this.moveItemDownToolStripMenuItem,
             this.toolStripSeparator3,
             this.toolStripSeparator2,
+            this.sortByNameToolStripMenuItem,
+            this.sortByTypeToolStripMenuItem,
+            this.sortByDateToolStripMenuItem,
+            this.toolStripSeparator4,
+            this.searchToolStripMenuItem,
             this.lockedToolStripMenuItem,
             this.minifyToolStripMenuItem,
             this.settingsToolStripMenuItem,
@@ -91,6 +101,39 @@
             // 
             this.toolStripSeparator2.Name = "toolStripSeparator2";
             this.toolStripSeparator2.Size = new System.Drawing.Size(149, 6);
+            // 
+            // sortByNameToolStripMenuItem
+            // 
+            this.sortByNameToolStripMenuItem.Name = "sortByNameToolStripMenuItem";
+            this.sortByNameToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.sortByNameToolStripMenuItem.Text = "Sort by Name";
+            this.sortByNameToolStripMenuItem.Click += new System.EventHandler(this.sortByNameToolStripMenuItem_Click);
+            // 
+            // sortByTypeToolStripMenuItem
+            // 
+            this.sortByTypeToolStripMenuItem.Name = "sortByTypeToolStripMenuItem";
+            this.sortByTypeToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.sortByTypeToolStripMenuItem.Text = "Sort by Type";
+            this.sortByTypeToolStripMenuItem.Click += new System.EventHandler(this.sortByTypeToolStripMenuItem_Click);
+            // 
+            // sortByDateToolStripMenuItem
+            // 
+            this.sortByDateToolStripMenuItem.Name = "sortByDateToolStripMenuItem";
+            this.sortByDateToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.sortByDateToolStripMenuItem.Text = "Sort by Date Modified";
+            this.sortByDateToolStripMenuItem.Click += new System.EventHandler(this.sortByDateToolStripMenuItem_Click);
+            // 
+            // toolStripSeparator4
+            // 
+            this.toolStripSeparator4.Name = "toolStripSeparator4";
+            this.toolStripSeparator4.Size = new System.Drawing.Size(177, 6);
+            // 
+            // searchToolStripMenuItem
+            // 
+            this.searchToolStripMenuItem.Name = "searchToolStripMenuItem";
+            this.searchToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.searchToolStripMenuItem.Text = "Search...    Ctrl+F";
+            this.searchToolStripMenuItem.Click += new System.EventHandler(this.searchToolStripMenuItem_Click);
             // 
             // lockedToolStripMenuItem
             // 
@@ -185,6 +228,11 @@
         private System.Windows.Forms.ToolStripMenuItem newFenceToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
         private System.Windows.Forms.ToolStripMenuItem settingsToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem sortByNameToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem sortByTypeToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem sortByDateToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator4;
+        private System.Windows.Forms.ToolStripMenuItem searchToolStripMenuItem;
     }
 }
 

@@ -33,6 +33,7 @@ namespace Fenceless
 
         private string selectedItem;
         private string hoveringItem;
+        private readonly HashSet<string> selectedItems = new HashSet<string>();
         private bool shouldUpdateSelection;
         private bool shouldRunDoubleClick;
         private bool hasSelectionUpdated;
@@ -42,6 +43,11 @@ namespace Fenceless
 
         private int scrollHeight;
         private int scrollOffset;
+
+        private bool isSearchActive = false;
+        private string searchQuery = "";
+        private int searchMatchCount = 0;
+        private TextBox searchBox;
 
         // New fields for transparency and autohide
         private bool isAutoHidden = false;
@@ -652,8 +658,25 @@ namespace Fenceless
                 CancelDrag();
                 return true;
             }
+
+            if (keyData == Keys.Escape && isSearchActive)
+            {
+                CloseSearch();
+                return true;
+            }
+
+            if (keyData == (Keys.Control | Keys.F))
+            {
+                ToggleSearch();
+                return true;
+            }
             
-            if (keyData == Keys.Delete && selectedItem != null && !lockedToolStripMenuItem.Checked)
+            if (keyData == Keys.Delete && selectedItems.Count > 0 && !lockedToolStripMenuItem.Checked)
+            {
+                RemoveSelectedItems();
+                return true;
+            }
+            else if (keyData == Keys.Delete && selectedItem != null && !lockedToolStripMenuItem.Checked)
             {
                 RemoveSelectedItem();
                 return true;
@@ -798,45 +821,100 @@ namespace Fenceless
                 RemoveItem(hoveringItem, confirm: false);
         }
 
+        private void sortByNameToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var ascending = !fenceInfo.SortAscending && fenceInfo.SortColumn == "name";
+            SortFiles("name", ascending);
+        }
+
+        private void sortByTypeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var ascending = !fenceInfo.SortAscending && fenceInfo.SortColumn == "type";
+            SortFiles("type", ascending);
+        }
+
+        private void sortByDateToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var ascending = !fenceInfo.SortAscending && fenceInfo.SortColumn == "date";
+            SortFiles("date", ascending);
+        }
+
+        private void searchToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ToggleSearch();
+        }
+
         private void contextMenuStrip1_Opening(object sender, System.ComponentModel.CancelEventArgs e)
         {
             var hasHoveringItem = hoveringItem != null;
             var itemIndex = hasHoveringItem ? fenceInfo.Files.IndexOf(hoveringItem) : -1;
             
-            // Item-specific actions
             deleteItemToolStripMenuItem.Visible = hasHoveringItem;
             removeItemToolStripMenuItem.Visible = hasHoveringItem;
             moveItemUpToolStripMenuItem.Visible = hasHoveringItem && itemIndex > 0;
             moveItemDownToolStripMenuItem.Visible = hasHoveringItem && itemIndex < fenceInfo.Files.Count - 1;
             toolStripSeparator3.Visible = hasHoveringItem;
+
+            sortByNameToolStripMenuItem.Text = fenceInfo.SortColumn == "name"
+                ? (fenceInfo.SortAscending ? "Sort by Name  \u2191" : "Sort by Name  \u2193")
+                : "Sort by Name";
+            sortByTypeToolStripMenuItem.Text = fenceInfo.SortColumn == "type"
+                ? (fenceInfo.SortAscending ? "Sort by Type  \u2191" : "Sort by Type  \u2193")
+                : "Sort by Type";
+            sortByDateToolStripMenuItem.Text = fenceInfo.SortColumn == "date"
+                ? (fenceInfo.SortAscending ? "Sort by Date Modified  \u2191" : "Sort by Date Modified  \u2193")
+                : "Sort by Date Modified";
+            searchToolStripMenuItem.Text = isSearchActive ? "Close Search    Esc" : "Search...    Ctrl+F";
         }
 
         private void FenceWindow_DragEnter(object sender, DragEventArgs e)
         {
-            if (e.Data.GetDataPresent(DataFormats.FileDrop) && !lockedToolStripMenuItem.Checked)
-                e.Effect = DragDropEffects.Move;
+            if (!lockedToolStripMenuItem.Checked)
+            {
+                if (e.Data.GetDataPresent(DataFormats.FileDrop) || e.Data.GetDataPresent("FencelessItemPaths"))
+                    e.Effect = DragDropEffects.Move;
+            }
         }
 
         private void FenceWindow_DragDrop(object sender, DragEventArgs e)
         {
             try
             {
-                var dropped = (string[])e.Data.GetData(DataFormats.FileDrop);
                 var addedFiles = 0;
-                
-                logger.Debug($"Processing {dropped.Length} dropped files", "FenceWindow");
-                
-                foreach (var file in dropped)
+
+                if (e.Data.GetDataPresent("FencelessItemPaths"))
                 {
-                    if (!fenceInfo.Files.Contains(file) && ItemExists(file))
+                    var data = e.Data.GetData("FencelessItemPaths") as string;
+                    if (!string.IsNullOrEmpty(data))
                     {
-                        fenceInfo.Files.Add(file);
-                        addedFiles++;
-                        logger.Debug($"Added file to fence: {file}", "FenceWindow");
+                        var paths = data.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var file in paths)
+                        {
+                            if (!fenceInfo.Files.Contains(file) && ItemExists(file))
+                            {
+                                fenceInfo.Files.Add(file);
+                                addedFiles++;
+                            }
+                        }
                     }
-                    else
+                }
+                else
+                {
+                    var dropped = (string[])e.Data.GetData(DataFormats.FileDrop);
+                    logger.Debug($"Processing {dropped.Length} dropped files", "FenceWindow");
+                    
+                    foreach (var file in dropped)
                     {
-                        logger.Debug($"Skipped file (already exists or invalid): {file}", "FenceWindow");
+                        if (!fenceInfo.Files.Contains(file) && ItemExists(file))
+                        {
+                            fenceInfo.Files.Add(file);
+                            addedFiles++;
+                            logger.Debug($"Added file to fence: {file}", "FenceWindow");
+                        }
+                        else
+                        {
+                            logger.Debug($"Skipped file (already exists or invalid): {file}", "FenceWindow");
+                        }
                     }
                 }
                 
@@ -935,20 +1013,52 @@ namespace Fenceless
             {
                 dragStartPoint = e.Location;
                 
-                // Find item under cursor
                 var itemPath = GetItemAtPosition(e.Location);
                 if (itemPath != null && ItemExists(itemPath))
                 {
-                    selectedItem = itemPath;
+                    if (ModifierKeys.HasFlag(Keys.Control))
+                    {
+                        if (selectedItems.Contains(itemPath))
+                            selectedItems.Remove(itemPath);
+                        else
+                            selectedItems.Add(itemPath);
+                        selectedItem = itemPath;
+                    }
+                    else if (ModifierKeys.HasFlag(Keys.Shift) && selectedItem != null)
+                    {
+                        var startIdx = fenceInfo.Files.IndexOf(selectedItem);
+                        var endIdx = fenceInfo.Files.IndexOf(itemPath);
+                        if (startIdx >= 0 && endIdx >= 0)
+                        {
+                            selectedItems.Clear();
+                            var min = Math.Min(startIdx, endIdx);
+                            var max = Math.Max(startIdx, endIdx);
+                            for (int i = min; i <= max; i++)
+                                selectedItems.Add(fenceInfo.Files[i]);
+                        }
+                        selectedItem = itemPath;
+                    }
+                    else
+                    {
+                        selectedItems.Clear();
+                        selectedItems.Add(itemPath);
+                        selectedItem = itemPath;
+                    }
                     Refresh();
                 }
                 else if (itemPath != null)
                 {
-                    // Item no longer exists, remove it from the fence
                     logger.Warning($"Item no longer exists, removing from fence: {itemPath}", "FenceWindow");
                     fenceInfo.Files.Remove(itemPath);
                     selectedItem = null;
+                    selectedItems.Clear();
                     Save();
+                    Refresh();
+                }
+                else
+                {
+                    selectedItem = null;
+                    selectedItems.Clear();
                     Refresh();
                 }
             }
@@ -988,6 +1098,7 @@ namespace Fenceless
             }
             
             selectedItem = null;
+            selectedItems.Clear();
             Refresh();
         }
 
@@ -1127,6 +1238,8 @@ namespace Fenceless
                 
                 // Dispose other resources
                 thumbnailProvider?.Dispose();
+                itemToolTip?.Dispose();
+                searchBox?.Dispose();
                 throttledMove?.Dispose();
                 throttledResize?.Dispose();
                 // Note: ShellContextMenu doesn't implement IDisposable
@@ -1471,6 +1584,164 @@ namespace Fenceless
             Invalidate();
         }
 
+        private void RemoveSelectedItems()
+        {
+            if (selectedItems.Count == 0) return;
+            try
+            {
+                var count = selectedItems.Count;
+                foreach (var item in selectedItems.ToList())
+                    fenceInfo.Files.Remove(item);
+                if (selectedItems.Contains(hoveringItem)) hoveringItem = null;
+                if (selectedItems.Contains(selectedItem)) selectedItem = null;
+                selectedItems.Clear();
+                iconCache.ClearCache();
+                Save();
+                Invalidate();
+                logger.Info($"Removed {count} items from fence '{fenceInfo.Name}'", "FenceWindow");
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Failed to remove selected items from fence '{fenceInfo.Name}'", "FenceWindow", ex);
+            }
+        }
+
+        private void ToggleSearch()
+        {
+            if (isSearchActive)
+            {
+                CloseSearch();
+            }
+            else
+            {
+                OpenSearch();
+            }
+        }
+
+        private void OpenSearch()
+        {
+            if (searchBox == null)
+            {
+                searchBox = new TextBox
+                {
+                    Width = 150,
+                    Height = 22,
+                    Font = new Font("Segoe UI", 9),
+                    BorderStyle = BorderStyle.FixedSingle
+                };
+                searchBox.TextChanged += SearchBox_TextChanged;
+                searchBox.KeyDown += SearchBox_KeyDown;
+                this.Controls.Add(searchBox);
+            }
+
+            isSearchActive = true;
+            searchBox.Text = searchQuery;
+            searchBox.Location = new Point(Width - searchBox.Width - 8, (titleHeight - searchBox.Height) / 2);
+            searchBox.Visible = true;
+            searchBox.BringToFront();
+            searchBox.Focus();
+            Invalidate();
+        }
+
+        private void CloseSearch()
+        {
+            isSearchActive = false;
+            searchQuery = "";
+            searchMatchCount = 0;
+            fenceInfo.SearchFilter = "";
+            if (searchBox != null)
+            {
+                searchBox.Visible = false;
+            }
+            Save();
+            Invalidate();
+        }
+
+        private void SearchBox_TextChanged(object sender, EventArgs e)
+        {
+            searchQuery = searchBox.Text;
+            fenceInfo.SearchFilter = searchQuery;
+            searchMatchCount = string.IsNullOrEmpty(searchQuery)
+                ? fenceInfo.Files.Count
+                : fenceInfo.Files.Count(f => Path.GetFileName(f).IndexOf(searchQuery, StringComparison.OrdinalIgnoreCase) >= 0);
+            Invalidate();
+        }
+
+        private void SearchBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Escape)
+            {
+                CloseSearch();
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.Enter)
+            {
+                CloseSearch();
+                e.Handled = true;
+            }
+        }
+
+        private List<string> GetFilteredFiles()
+        {
+            if (string.IsNullOrEmpty(searchQuery))
+                return fenceInfo.Files;
+
+            return fenceInfo.Files
+                .Where(f => Path.GetFileName(f).IndexOf(searchQuery, StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
+        }
+
+        private void SortFiles(string column, bool ascending)
+        {
+            fenceInfo.SortColumn = column;
+            fenceInfo.SortAscending = ascending;
+
+            try
+            {
+                switch (column.ToLowerInvariant())
+                {
+                    case "name":
+                        fenceInfo.Files.Sort((a, b) =>
+                        {
+                            var cmp = string.Compare(Path.GetFileName(a), Path.GetFileName(b), StringComparison.OrdinalIgnoreCase);
+                            return ascending ? cmp : -cmp;
+                        });
+                        break;
+                    case "type":
+                        fenceInfo.Files.Sort((a, b) =>
+                        {
+                            var extA = Path.GetExtension(a).ToLowerInvariant();
+                            var extB = Path.GetExtension(b).ToLowerInvariant();
+                            var cmp = string.Compare(extA, extB, StringComparison.OrdinalIgnoreCase);
+                            if (cmp == 0)
+                                cmp = string.Compare(Path.GetFileName(a), Path.GetFileName(b), StringComparison.OrdinalIgnoreCase);
+                            return ascending ? cmp : -cmp;
+                        });
+                        break;
+                    case "date":
+                        fenceInfo.Files.Sort((a, b) =>
+                        {
+                            DateTime dateA, dateB;
+                            try { dateA = File.GetLastWriteTime(a); }
+                            catch { dateA = DateTime.MinValue; }
+                            try { dateB = File.GetLastWriteTime(b); }
+                            catch { dateB = DateTime.MinValue; }
+                            var cmp = DateTime.Compare(dateA, dateB);
+                            return ascending ? cmp : -cmp;
+                        });
+                        break;
+                }
+
+                Save();
+                Invalidate();
+                logger.Info($"Sorted fence '{fenceInfo.Name}' by {column} {(ascending ? "ascending" : "descending")}", "FenceWindow");
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Failed to sort fence '{fenceInfo.Name}'", "FenceWindow", ex);
+            }
+        }
+
         #region Internal Drag and Drop
 
         private struct FenceGridLayout
@@ -1553,7 +1824,6 @@ namespace Fenceless
 
         private void StartItemDrag(string itemPath, Point startLocation)
         {
-            // Verify item still exists before starting drag
             if (!ItemExists(itemPath))
             {
                 logger.Warning($"Cannot drag item that no longer exists: {itemPath}", "FenceWindow");
@@ -1567,12 +1837,17 @@ namespace Fenceless
             isDraggingItem = true;
             draggingItem = itemPath;
             dragCurrentPoint = startLocation;
-            
-            // Set cursor to indicate dragging
             this.Cursor = Cursors.Hand;
-            
-            // Update window title to show drag status
             this.Text = $"{fenceInfo.Name} - Dragging {Path.GetFileName(itemPath)}";
+            
+            try
+            {
+                var paths = selectedItems.Count > 1
+                    ? string.Join("\n", selectedItems)
+                    : itemPath;
+                this.DoDragDrop(new DataObject("FencelessItemPaths", paths), DragDropEffects.Move);
+            }
+            catch { }
             
             logger.Debug($"Started dragging item '{Path.GetFileName(itemPath)}' in fence '{fenceInfo.Name}'", "FenceWindow");
         }

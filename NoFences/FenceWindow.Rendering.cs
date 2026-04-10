@@ -57,7 +57,7 @@ namespace Fenceless
 
                 float opacity = isBeingDragged ? 0.3f : 1.0f;
                 
-                if (selectedItem == entry.Path && !isBeingDragged)
+                if ((selectedItem == entry.Path || selectedItems.Contains(entry.Path)) && !isBeingDragged)
                 {
                     if (mouseOver)
                     {
@@ -174,6 +174,15 @@ namespace Fenceless
                 e.Graphics.DrawString(Text, titleFont, textBrush, new PointF(Width / 2, titleOffset), 
                     new StringFormat { Alignment = StringAlignment.Center });
 
+                if (isSearchActive && searchBox != null)
+                {
+                    var searchLabel = $"{searchMatchCount} match{(searchMatchCount != 1 ? "es" : "")}";
+                    var searchLabelBrush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(180, textColor));
+                    var searchLabelSize = e.Graphics.MeasureString(searchLabel, iconFont);
+                    e.Graphics.DrawString(searchLabel, iconFont, searchLabelBrush,
+                        new PointF(Width - searchBox.Width - 12 - searchLabelSize.Width, (titleHeight - searchLabelSize.Height) / 2));
+                }
+
                 if (fenceInfo.BorderWidth > 0)
                 {
                     var borderPen = GraphicsOptimizer.GetCachedPen(borderColor, fenceInfo.BorderWidth);
@@ -200,7 +209,9 @@ namespace Fenceless
                 scrollHeight = 0;
                 e.Graphics.Clip = new Region(new Rectangle(0, titleHeight, Width, Height - titleHeight));
                 
-                foreach (var file in fenceInfo.Files)
+                var filesToRender = GetFilteredFiles();
+                
+                foreach (var file in filesToRender)
                 {
                     try
                     {
