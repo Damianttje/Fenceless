@@ -1415,7 +1415,22 @@ namespace Fenceless
 
         private void newFenceToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            FenceManager.Instance.CreateFence("New fence");
+            FenceManager.Instance.CreateFence("New Fence", FenceType.Standard);
+        }
+
+        private void newLiveFolderToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            FenceManager.Instance.CreateFence("Live Folder", FenceType.LiveFolder);
+        }
+
+        private void newRunningTasksToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            FenceManager.Instance.CreateFence("Running Tasks", FenceType.RunningTasks);
+        }
+
+        private void newClipboardHistoryToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            FenceManager.Instance.CreateFence("Clipboard History", FenceType.ClipboardHistory);
         }
 
         private void FenceWindow_FormClosed(object sender, FormClosedEventArgs e)

@@ -77,14 +77,39 @@ namespace Fenceless
                             // Add Fence menu item with sub menu for fence type
                             var addFenceMenuItem = new ToolStripMenuItem("Add Fence");
 
-                            var normalFenceMenuItem = new ToolStripMenuItem("Normal Fence");
+                            var normalFenceMenuItem = new ToolStripMenuItem("Standard Fence");
                             normalFenceMenuItem.Click += (s, e) =>
                             {
-                                logger.Info("Add Normal Fence requested from tray menu", "Main");
-                                FenceManager.Instance.CreateFence("New Fence");
+                                logger.Info("Add Standard Fence requested from tray menu", "Main");
+                                FenceManager.Instance.CreateFence("New Fence", FenceType.Standard);
+                            };
+
+                            var liveFolderMenuItem = new ToolStripMenuItem("Live Folder");
+                            liveFolderMenuItem.Click += (s, e) =>
+                            {
+                                logger.Info("Add Live Folder Fence requested from tray menu", "Main");
+                                FenceManager.Instance.CreateFence("Live Folder", FenceType.LiveFolder);
+                            };
+
+                            var runningTasksMenuItem = new ToolStripMenuItem("Running Tasks");
+                            runningTasksMenuItem.Click += (s, e) =>
+                            {
+                                logger.Info("Add Running Tasks Fence requested from tray menu", "Main");
+                                FenceManager.Instance.CreateFence("Running Tasks", FenceType.RunningTasks);
+                            };
+
+                            var clipboardMenuItem = new ToolStripMenuItem("Clipboard History");
+                            clipboardMenuItem.Click += (s, e) =>
+                            {
+                                logger.Info("Add Clipboard History Fence requested from tray menu", "Main");
+                                FenceManager.Instance.CreateFence("Clipboard History", FenceType.ClipboardHistory);
                             };
 
                             addFenceMenuItem.DropDownItems.Add(normalFenceMenuItem);
+                            addFenceMenuItem.DropDownItems.Add(new ToolStripSeparator());
+                            addFenceMenuItem.DropDownItems.Add(liveFolderMenuItem);
+                            addFenceMenuItem.DropDownItems.Add(runningTasksMenuItem);
+                            addFenceMenuItem.DropDownItems.Add(clipboardMenuItem);
 
                             contextMenu.Items.Add(addFenceMenuItem);
 

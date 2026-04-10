@@ -530,7 +530,7 @@ namespace Fenceless.Model
             try
             {
                 logger.Info("Creating new fence from hotkey", "FenceManager");
-                CreateFence("New Fence");
+                CreateFence("New Fence", FenceType.Standard);
             }
             catch (Exception ex)
             {

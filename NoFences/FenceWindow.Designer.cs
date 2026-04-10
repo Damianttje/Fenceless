@@ -36,6 +36,10 @@
             this.renameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.newFenceToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.newStandardFenceToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.newLiveFolderToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.newRunningTasksToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.newClipboardHistoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.appContextMenu.SuspendLayout();
             this.SuspendLayout();
@@ -180,7 +184,39 @@
             // 
             resources.ApplyResources(this.newFenceToolStripMenuItem, "newFenceToolStripMenuItem");
             this.newFenceToolStripMenuItem.Name = "newFenceToolStripMenuItem";
-            this.newFenceToolStripMenuItem.Click += new System.EventHandler(this.newFenceToolStripMenuItem_Click);
+            this.newFenceToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.newStandardFenceToolStripMenuItem,
+            this.newLiveFolderToolStripMenuItem,
+            this.newRunningTasksToolStripMenuItem,
+            this.newClipboardHistoryToolStripMenuItem});
+            // 
+            // newStandardFenceToolStripMenuItem
+            // 
+            this.newStandardFenceToolStripMenuItem.Name = "newStandardFenceToolStripMenuItem";
+            this.newStandardFenceToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.newStandardFenceToolStripMenuItem.Text = "Standard Fence";
+            this.newStandardFenceToolStripMenuItem.Click += new System.EventHandler(this.newFenceToolStripMenuItem_Click);
+            // 
+            // newLiveFolderToolStripMenuItem
+            // 
+            this.newLiveFolderToolStripMenuItem.Name = "newLiveFolderToolStripMenuItem";
+            this.newLiveFolderToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.newLiveFolderToolStripMenuItem.Text = "Live Folder";
+            this.newLiveFolderToolStripMenuItem.Click += new System.EventHandler(this.newLiveFolderToolStripMenuItem_Click);
+            // 
+            // newRunningTasksToolStripMenuItem
+            // 
+            this.newRunningTasksToolStripMenuItem.Name = "newRunningTasksToolStripMenuItem";
+            this.newRunningTasksToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.newRunningTasksToolStripMenuItem.Text = "Running Tasks";
+            this.newRunningTasksToolStripMenuItem.Click += new System.EventHandler(this.newRunningTasksToolStripMenuItem_Click);
+            // 
+            // newClipboardHistoryToolStripMenuItem
+            // 
+            this.newClipboardHistoryToolStripMenuItem.Name = "newClipboardHistoryToolStripMenuItem";
+            this.newClipboardHistoryToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.newClipboardHistoryToolStripMenuItem.Text = "Clipboard History";
+            this.newClipboardHistoryToolStripMenuItem.Click += new System.EventHandler(this.newClipboardHistoryToolStripMenuItem_Click);
             // 
             // exitToolStripMenuItem
             // 
@@ -235,6 +271,10 @@
         private System.Windows.Forms.ToolStripMenuItem moveItemDownToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
         private System.Windows.Forms.ToolStripMenuItem newFenceToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem newStandardFenceToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem newLiveFolderToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem newRunningTasksToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem newClipboardHistoryToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
         private System.Windows.Forms.ToolStripMenuItem settingsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem sortByNameToolStripMenuItem;
