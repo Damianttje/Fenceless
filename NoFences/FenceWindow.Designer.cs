@@ -155,7 +155,6 @@
             this.Click += new System.EventHandler(this.FenceWindow_Click);
             this.DragDrop += new System.Windows.Forms.DragEventHandler(this.FenceWindow_DragDrop);
             this.DragEnter += new System.Windows.Forms.DragEventHandler(this.FenceWindow_DragEnter);
-            this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.FenceWindow_KeyDown);
             this.Paint += new System.Windows.Forms.PaintEventHandler(this.FenceWindow_Paint);
             this.DoubleClick += new System.EventHandler(this.FenceWindow_DoubleClick);
             this.MouseClick += new System.Windows.Forms.MouseEventHandler(this.FenceWindow_MouseClick);

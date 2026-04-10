@@ -22,6 +22,8 @@ namespace Fenceless.UI
         private readonly Logger logger;
         private DateTime lastUpdateTime;
         private Timer refreshTimer;
+        private long lastReadPosition;
+        private string cachedFullContent = "";
 
         public LogViewerForm()
         {
@@ -144,6 +146,8 @@ namespace Fenceless.UI
                 if (File.Exists(logFilePath))
                 {
                     var content = File.ReadAllText(logFilePath);
+                    cachedFullContent = content;
+                    lastReadPosition = 0;
                     FilterAndDisplayLogs(content);
 
                     var fileInfo = new FileInfo(logFilePath);
@@ -152,6 +156,8 @@ namespace Fenceless.UI
                 }
                 else
                 {
+                    cachedFullContent = "";
+                    lastReadPosition = 0;
                     logTextBox.Text = "No log file found. Logs will appear here once the application starts logging.";
                     statusLabel.Text = "No log file found";
                 }
@@ -172,7 +178,19 @@ namespace Fenceless.UI
                     var fileInfo = new FileInfo(logFilePath);
                     if (fileInfo.LastWriteTime > lastUpdateTime)
                     {
-                        LoadLogContent();
+                        using (var fs = new FileStream(logFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        {
+                            fs.Position = lastReadPosition;
+                            using (var sr = new StreamReader(fs))
+                            {
+                                var newContent = sr.ReadToEnd();
+                                lastReadPosition = fs.Position;
+                                cachedFullContent += newContent;
+                            }
+                        }
+
+                        FilterAndDisplayLogs(cachedFullContent);
+                        lastUpdateTime = fileInfo.LastWriteTime;
 
                         if (autoScrollCheckBox.Checked)
                         {
@@ -288,12 +306,8 @@ namespace Fenceless.UI
 
         private void LogLevelComboBox_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (File.Exists(logFilePath))
-            {
-                var content = File.ReadAllText(logFilePath);
-                FilterAndDisplayLogs(content);
-                statusLabel.Text = $"Filtered to show: {logLevelComboBox.SelectedItem}";
-            }
+            FilterAndDisplayLogs(cachedFullContent);
+            statusLabel.Text = $"Filtered to show: {logLevelComboBox.SelectedItem}";
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)

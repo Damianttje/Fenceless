@@ -16,6 +16,8 @@ namespace Fenceless.UI
         private List<FenceInfo> fenceInfos;
         private FenceInfo selectedFenceInfo;
         private bool isUpdatingControls = false;
+        private System.Threading.Timer _globalSettingsDebounce;
+        private System.Threading.Timer _fenceSettingsDebounce;
 
         private SidebarNavigation sidebar;
         private AnimatedPagePanel pagePanel;
@@ -627,7 +629,6 @@ namespace Fenceless.UI
 
             var colorButton = Theme.CreateColorSwatchButton();
             colorButton.Location = new Point(x + 130, y);
-            colorButton.Click += (s, e) => ShowColorDialog(colorButton, labelText, false);
 
             var transLabel = Theme.CreateLabel("Opacity (%):", Theme.Fonts.Small, Theme.Colors.TextSecondary);
             transLabel.Location = new Point(x + 260, y + 4);
@@ -649,40 +650,58 @@ namespace Fenceless.UI
 
         #region Event Handlers
 
+        private void DebounceGlobalSettingsSave()
+        {
+            _globalSettingsDebounce?.Dispose();
+            _globalSettingsDebounce = new System.Threading.Timer(_ =>
+            {
+                try { this.Invoke(new Action(ApplyGlobalSettings)); } catch { }
+            }, null, 500, System.Threading.Timeout.Infinite);
+        }
+
+        private void DebounceFenceSettingsSave()
+        {
+            _fenceSettingsDebounce?.Dispose();
+            _fenceSettingsDebounce = new System.Threading.Timer(_ =>
+            {
+                try { this.Invoke(new Action(() => ApplyFenceSettings())); } catch { }
+            }, null, 500, System.Threading.Timeout.Infinite);
+        }
+
         private void SetupEventHandlers()
         {
-            chkAutoSave.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            nudAutoSaveInterval.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            chkShowTooltips.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            chkEnableAnimations.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            chkStartWithWindows.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            cmbLogLevel.SelectedIndexChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            chkEnableFileLogging.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
+            chkAutoSave.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            nudAutoSaveInterval.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            chkShowTooltips.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            chkEnableAnimations.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            chkStartWithWindows.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            cmbLogLevel.SelectedIndexChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            chkEnableFileLogging.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
 
-            txtToggleTransparencyShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            txtToggleAutoHideShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            txtShowAllFencesShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            txtCreateNewFenceShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            txtOpenSettingsShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            txtToggleLockShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            txtMinimizeAllFencesShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            txtRefreshFencesShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
+            txtToggleTransparencyShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            txtToggleAutoHideShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            txtShowAllFencesShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            txtCreateNewFenceShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            txtOpenSettingsShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            txtToggleLockShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            txtMinimizeAllFencesShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            txtRefreshFencesShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
 
-            nudDefaultFenceWidth.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            nudDefaultFenceHeight.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            nudDefaultTitleHeight.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            nudDefaultTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            chkDefaultAutoHide.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            nudDefaultAutoHideDelay.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            nudDefaultBackgroundTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            nudDefaultTitleBackgroundTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            nudDefaultTextTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            nudDefaultBorderTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            nudDefaultBorderWidth.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            nudDefaultCornerRadius.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            chkDefaultShowShadow.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            cmbDefaultIconSize.SelectedIndexChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
-            nudDefaultItemSpacing.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
+            nudDefaultFenceWidth.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            nudDefaultFenceHeight.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            nudDefaultTitleHeight.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            nudDefaultTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            chkDefaultAutoHide.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            nudDefaultAutoHideDelay.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            nudDefaultBackgroundTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            nudDefaultTitleBackgroundTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            nudDefaultTextTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            nudDefaultBorderTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            nudDefaultBorderWidth.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            nudDefaultCornerRadius.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            chkDefaultShowShadow.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            cmbDefaultIconSize.SelectedIndexChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            nudDefaultItemSpacing.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
 
             btnDefaultBackgroundColor.Click += (s, e) => ShowColorDialog(btnDefaultBackgroundColor, "DefaultBackgroundColor");
             btnDefaultTitleBackgroundColor.Click += (s, e) => ShowColorDialog(btnDefaultTitleBackgroundColor, "DefaultTitleBackgroundColor");
@@ -697,24 +716,24 @@ namespace Fenceless.UI
             lstFences.DrawItem += LstFences_DrawItem;
             lstFences.SelectedIndexChanged += LstFences_SelectedIndexChanged;
 
-            txtFenceName.TextChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            nudFenceTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            chkFenceAutoHide.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            nudFenceAutoHideDelay.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            chkFenceLocked.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            chkFenceCanMinify.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            nudFenceWidth.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            nudFenceHeight.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            nudFenceTitleHeight.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            nudFenceBackgroundTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            nudFenceTitleBackgroundTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            nudFenceTextTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            nudFenceBorderTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            nudFenceBorderWidth.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            nudFenceCornerRadius.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            chkFenceShowShadow.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            cmbFenceIconSize.SelectedIndexChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-            nudFenceItemSpacing.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
+            txtFenceName.TextChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            nudFenceTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            chkFenceAutoHide.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            nudFenceAutoHideDelay.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            chkFenceLocked.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            chkFenceCanMinify.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            nudFenceWidth.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            nudFenceHeight.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            nudFenceTitleHeight.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            nudFenceBackgroundTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            nudFenceTitleBackgroundTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            nudFenceTextTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            nudFenceBorderTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            nudFenceBorderWidth.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            nudFenceCornerRadius.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            chkFenceShowShadow.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            cmbFenceIconSize.SelectedIndexChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            nudFenceItemSpacing.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
         }
 
         #endregion
@@ -1190,6 +1209,8 @@ namespace Fenceless.UI
             if (disposing)
             {
                 logger?.Debug("Disposing settings form", "SettingsForm");
+                _globalSettingsDebounce?.Dispose();
+                _fenceSettingsDebounce?.Dispose();
             }
             base.Dispose(disposing);
         }

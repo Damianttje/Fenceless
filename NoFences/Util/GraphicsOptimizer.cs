@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -12,61 +13,39 @@ namespace Fenceless.Util
     public static class GraphicsOptimizer
     {
         private static readonly object _lock = new object();
-        private static Pen[] _penCache;
-        private static SolidBrush[] _brushCache;
-        private static readonly int _cacheSize = 100;
-
-        static GraphicsOptimizer()
-        {
-            InitializeCaches();
-        }
-
-        private static void InitializeCaches()
-        {
-            lock (_lock)
-            {
-                _penCache = new Pen[_cacheSize];
-                _brushCache = new SolidBrush[_cacheSize];
-            }
-        }
+        private static readonly Dictionary<(Color color, float width), Pen> _penCache = new Dictionary<(Color, float), Pen>();
+        private static readonly Dictionary<Color, SolidBrush> _brushCache = new Dictionary<Color, SolidBrush>();
 
         /// <summary>
         /// Gets a cached pen or creates a new one if not available
         /// </summary>
         public static Pen GetCachedPen(Color color, float width = 1f)
         {
-            var hash = GetColorHash(color);
+            var key = (color, width);
             lock (_lock)
             {
-                if (_penCache[hash] == null || _penCache[hash].Color != color || _penCache[hash].Width != width)
+                if (_penCache.TryGetValue(key, out var cached))
                 {
-                    _penCache[hash]?.Dispose();
-                    _penCache[hash] = new Pen(color, width);
+                    return cached;
                 }
-                return _penCache[hash];
+                var pen = new Pen(color, width);
+                _penCache[key] = pen;
+                return pen;
             }
         }
 
-        /// <summary>
-        /// Gets a cached brush or creates a new one if not available
-        /// </summary>
         public static SolidBrush GetCachedBrush(Color color)
         {
-            var hash = GetColorHash(color);
             lock (_lock)
             {
-                if (_brushCache[hash] == null || _brushCache[hash].Color != color)
+                if (_brushCache.TryGetValue(color, out var cached))
                 {
-                    _brushCache[hash]?.Dispose();
-                    _brushCache[hash] = new SolidBrush(color);
+                    return cached;
                 }
-                return _brushCache[hash];
+                var brush = new SolidBrush(color);
+                _brushCache[color] = brush;
+                return brush;
             }
-        }
-
-        private static int GetColorHash(Color color)
-        {
-            return Math.Abs((color.R * 7 + color.G * 11 + color.B * 13 + color.A * 17) % _cacheSize);
         }
 
         /// <summary>
@@ -76,11 +55,13 @@ namespace Fenceless.Util
         {
             lock (_lock)
             {
-                for (int i = 0; i < _cacheSize; i++)
-                {
-                    _penCache[i]?.Dispose();
-                    _brushCache[i]?.Dispose();
-                }
+                foreach (var pen in _penCache.Values)
+                    pen?.Dispose();
+                _penCache.Clear();
+
+                foreach (var brush in _brushCache.Values)
+                    brush?.Dispose();
+                _brushCache.Clear();
             }
         }
 

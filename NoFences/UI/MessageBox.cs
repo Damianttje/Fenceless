@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
+using Fenceless.Util;
 
 namespace Fenceless.UI
 {
@@ -199,7 +200,7 @@ namespace Fenceless.UI
 
             BringChromeToFront();
 
-            this.Shown += (s, e) => Util.AnimationHelper.FadeIn(this, 200);
+            this.Shown += (s, e) => AnimationHelper.FadeIn(this, 200);
         }
 
         private Button CreateDialogButton(string text, DialogResult result, Theme.ButtonRole role = Theme.ButtonRole.Default)

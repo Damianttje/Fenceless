@@ -100,48 +100,33 @@ namespace Fenceless.Model
                 if (File.Exists(settingsPath))
                 {
                     var json = File.ReadAllText(settingsPath);
-                    // Create a temporary settings object without triggering constructor
-                    var tempSettings = JsonConvert.DeserializeObject<TempSettings>(json);
-                    if (tempSettings != null)
-                    {
-                        // Validate and apply settings with bounds checking
-                        AutoSave = tempSettings.AutoSave;
-                        AutoSaveInterval = Math.Max(5, Math.Min(3600, tempSettings.AutoSaveInterval)); // 5 seconds to 1 hour
-                        ShowTooltips = tempSettings.ShowTooltips;
-                        EnableAnimations = tempSettings.EnableAnimations;
-                        DefaultFenceWidth = Math.Max(200, Math.Min(2000, tempSettings.DefaultFenceWidth)); // 200-2000 pixels
-                        DefaultFenceHeight = Math.Max(200, Math.Min(2000, tempSettings.DefaultFenceHeight)); // 200-2000 pixels
-                        DefaultTransparency = Math.Max(0, Math.Min(100, tempSettings.DefaultTransparency)); // 0-100%
-                        DefaultAutoHide = tempSettings.DefaultAutoHide;
-                        DefaultAutoHideDelay = Math.Max(500, Math.Min(10000, tempSettings.DefaultAutoHideDelay)); // 0.5-10 seconds
-                        DefaultTitleHeight = Math.Max(15, Math.Min(50, tempSettings.DefaultTitleHeight)); // 15-50 pixels
-                        DefaultBackgroundColor = tempSettings.DefaultBackgroundColor;
-                        DefaultTitleBackgroundColor = tempSettings.DefaultTitleBackgroundColor;
-                        DefaultTextColor = tempSettings.DefaultTextColor;
-                        DefaultBorderColor = tempSettings.DefaultBorderColor;
-                        DefaultBorderWidth = Math.Max(0, Math.Min(10, tempSettings.DefaultBorderWidth)); // 0-10 pixels
-                        DefaultCornerRadius = Math.Max(0, Math.Min(50, tempSettings.DefaultCornerRadius)); // 0-50 pixels
-                        DefaultShowShadow = tempSettings.DefaultShowShadow;
-                        DefaultIconSize = Math.Max(16, Math.Min(256, tempSettings.DefaultIconSize)); // 16-256 pixels
-                        DefaultItemSpacing = Math.Max(5, Math.Min(50, tempSettings.DefaultItemSpacing)); // 5-50 pixels
-                        DefaultBackgroundTransparency = Math.Max(0, Math.Min(100, tempSettings.DefaultBackgroundTransparency)); // 0-100%
-                        DefaultTitleBackgroundTransparency = Math.Max(0, Math.Min(100, tempSettings.DefaultTitleBackgroundTransparency)); // 0-100%
-                        DefaultTextTransparency = Math.Max(0, Math.Min(100, tempSettings.DefaultTextTransparency)); // 0-100%
-                        DefaultBorderTransparency = Math.Max(0, Math.Min(100, tempSettings.DefaultBorderTransparency)); // 0-100%
-                        LogLevel = ValidateLogLevel(tempSettings.LogLevel);
-                        EnableFileLogging = tempSettings.EnableFileLogging;
-                        ToggleTransparencyShortcut = ValidateShortcut(tempSettings.ToggleTransparencyShortcut) ?? "Ctrl+Alt+T";
-                        ToggleAutoHideShortcut = ValidateShortcut(tempSettings.ToggleAutoHideShortcut) ?? "Ctrl+Alt+H";
-                        ShowAllFencesShortcut = ValidateShortcut(tempSettings.ShowAllFencesShortcut) ?? "Ctrl+Alt+S";
-                        CreateNewFenceShortcut = ValidateShortcut(tempSettings.CreateNewFenceShortcut) ?? "Ctrl+Alt+N";
-                        OpenSettingsShortcut = ValidateShortcut(tempSettings.OpenSettingsShortcut) ?? "Ctrl+Alt+O";
-                        ToggleLockShortcut = ValidateShortcut(tempSettings.ToggleLockShortcut) ?? "Ctrl+Alt+L";
-                        MinimizeAllFencesShortcut = ValidateShortcut(tempSettings.MinimizeAllFencesShortcut) ?? "Ctrl+Alt+M";
-                        RefreshFencesShortcut = ValidateShortcut(tempSettings.RefreshFencesShortcut) ?? "F5";
-                        StartWithWindows = tempSettings.StartWithWindows;
-                        
-                        logger?.Info("Application settings loaded successfully", "AppSettings");
-                    }
+                    JsonConvert.PopulateObject(json, this);
+                    
+                    AutoSaveInterval = Math.Max(5, Math.Min(3600, AutoSaveInterval));
+                    DefaultFenceWidth = Math.Max(200, Math.Min(2000, DefaultFenceWidth));
+                    DefaultFenceHeight = Math.Max(200, Math.Min(2000, DefaultFenceHeight));
+                    DefaultTransparency = Math.Max(0, Math.Min(100, DefaultTransparency));
+                    DefaultAutoHideDelay = Math.Max(500, Math.Min(10000, DefaultAutoHideDelay));
+                    DefaultTitleHeight = Math.Max(15, Math.Min(50, DefaultTitleHeight));
+                    DefaultBorderWidth = Math.Max(0, Math.Min(10, DefaultBorderWidth));
+                    DefaultCornerRadius = Math.Max(0, Math.Min(50, DefaultCornerRadius));
+                    DefaultIconSize = Math.Max(16, Math.Min(256, DefaultIconSize));
+                    DefaultItemSpacing = Math.Max(5, Math.Min(50, DefaultItemSpacing));
+                    DefaultBackgroundTransparency = Math.Max(0, Math.Min(100, DefaultBackgroundTransparency));
+                    DefaultTitleBackgroundTransparency = Math.Max(0, Math.Min(100, DefaultTitleBackgroundTransparency));
+                    DefaultTextTransparency = Math.Max(0, Math.Min(100, DefaultTextTransparency));
+                    DefaultBorderTransparency = Math.Max(0, Math.Min(100, DefaultBorderTransparency));
+                    LogLevel = ValidateLogLevel(LogLevel);
+                    ToggleTransparencyShortcut = ValidateShortcut(ToggleTransparencyShortcut) ?? "Ctrl+Alt+T";
+                    ToggleAutoHideShortcut = ValidateShortcut(ToggleAutoHideShortcut) ?? "Ctrl+Alt+H";
+                    ShowAllFencesShortcut = ValidateShortcut(ShowAllFencesShortcut) ?? "Ctrl+Alt+S";
+                    CreateNewFenceShortcut = ValidateShortcut(CreateNewFenceShortcut) ?? "Ctrl+Alt+N";
+                    OpenSettingsShortcut = ValidateShortcut(OpenSettingsShortcut) ?? "Ctrl+Alt+O";
+                    ToggleLockShortcut = ValidateShortcut(ToggleLockShortcut) ?? "Ctrl+Alt+L";
+                    MinimizeAllFencesShortcut = ValidateShortcut(MinimizeAllFencesShortcut) ?? "Ctrl+Alt+M";
+                    RefreshFencesShortcut = ValidateShortcut(RefreshFencesShortcut) ?? "F5";
+                    
+                    logger?.Info("Application settings loaded successfully", "AppSettings");
                 }
                 else
                 {
@@ -160,7 +145,7 @@ namespace Fenceless.Model
         
         public void SaveSettings()
         {
-            _settingsLock.EnterReadLock();
+            _settingsLock.EnterWriteLock();
             try
             {
                 logger?.Debug($"Saving settings to: {settingsPath}", "AppSettings");
@@ -168,7 +153,6 @@ namespace Fenceless.Model
                 var json = JsonConvert.SerializeObject(this, Formatting.Indented);
                 AtomicFileWrite(settingsPath, json);
                 
-                // Apply logging settings after saving
                 ApplyLoggingSettings();
                 
                 logger?.Info("Application settings saved successfully", "AppSettings");
@@ -179,7 +163,7 @@ namespace Fenceless.Model
             }
             finally
             {
-                _settingsLock.ExitReadLock();
+                _settingsLock.ExitWriteLock();
             }
         }
         
@@ -269,57 +253,16 @@ namespace Fenceless.Model
             if (string.IsNullOrEmpty(shortcut))
                 return null;
                 
-            // Basic validation - ensure it contains at least one key
             var parts = shortcut.Split('+');
             if (parts.Length == 0)
                 return null;
                 
-            // Check for at least one valid key
             var validKeys = new[] { "Ctrl", "Alt", "Shift", "Windows", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", 
                                   "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", 
                                   "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
                                   "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" };
-                                  
+                                   
             return parts.Any(p => validKeys.Contains(p.Trim())) ? shortcut : null;
-        }
-        
-        // Helper class for deserialization that doesn't have a constructor
-        private class TempSettings
-        {
-            public bool AutoSave { get; set; }
-            public int AutoSaveInterval { get; set; }
-            public bool ShowTooltips { get; set; }
-            public bool EnableAnimations { get; set; }
-            public int DefaultFenceWidth { get; set; }
-            public int DefaultFenceHeight { get; set; }
-            public int DefaultTransparency { get; set; }
-            public bool DefaultAutoHide { get; set; }
-            public int DefaultAutoHideDelay { get; set; }
-            public int DefaultTitleHeight { get; set; }
-            public int DefaultBackgroundColor { get; set; }
-            public int DefaultTitleBackgroundColor { get; set; }
-            public int DefaultTextColor { get; set; }
-            public int DefaultBorderColor { get; set; }
-            public int DefaultBorderWidth { get; set; }
-            public int DefaultCornerRadius { get; set; }
-            public bool DefaultShowShadow { get; set; }
-            public int DefaultIconSize { get; set; }
-            public int DefaultItemSpacing { get; set; }
-            public int DefaultBackgroundTransparency { get; set; }
-            public int DefaultTitleBackgroundTransparency { get; set; }
-            public int DefaultTextTransparency { get; set; }
-            public int DefaultBorderTransparency { get; set; }
-            public string LogLevel { get; set; }
-            public bool EnableFileLogging { get; set; } = true;
-            public string ToggleTransparencyShortcut { get; set; }
-            public string ToggleAutoHideShortcut { get; set; }
-            public string ShowAllFencesShortcut { get; set; }
-            public string CreateNewFenceShortcut { get; set; }
-            public string OpenSettingsShortcut { get; set; }
-            public string ToggleLockShortcut { get; set; }
-            public string MinimizeAllFencesShortcut { get; set; }
-            public string RefreshFencesShortcut { get; set; }
-            public bool StartWithWindows { get; set; }
         }
     }
 }

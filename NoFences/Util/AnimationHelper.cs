@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -6,6 +7,10 @@ namespace Fenceless.Util
 {
     public static class AnimationHelper
     {
+        private static readonly Dictionary<Form, Timer> _opacityAnimations = new Dictionary<Form, Timer>();
+        private static readonly Dictionary<Control, Timer> _colorAnimations = new Dictionary<Control, Timer>();
+        private static readonly object _lock = new object();
+
         public static void FadeIn(Form form, int durationMs = 200, Action onComplete = null)
         {
             AnimateOpacity(form, 0.0, 1.0, durationMs, onComplete);
@@ -25,6 +30,8 @@ namespace Fenceless.Util
                 return;
             }
 
+            CancelOpacityAnimation(form);
+
             var timer = new Timer { Interval = 16 };
             double startValue = from;
             double range = to - from;
@@ -42,13 +49,28 @@ namespace Fenceless.Util
                 {
                     timer.Stop();
                     timer.Dispose();
+                    lock (_lock) { _opacityAnimations.Remove(form); }
                     form.Opacity = to;
                     onComplete?.Invoke();
                 }
             };
 
+            lock (_lock) { _opacityAnimations[form] = timer; }
             form.Opacity = from;
             timer.Start();
+        }
+
+        public static void CancelOpacityAnimation(Form form)
+        {
+            lock (_lock)
+            {
+                if (_opacityAnimations.TryGetValue(form, out var timer))
+                {
+                    timer.Stop();
+                    timer.Dispose();
+                    _opacityAnimations.Remove(form);
+                }
+            }
         }
 
         public static void LerpColor(Control control, Color from, Color to, int durationMs, Action onComplete = null)
@@ -59,6 +81,8 @@ namespace Fenceless.Util
                 onComplete?.Invoke();
                 return;
             }
+
+            CancelColorAnimation(control);
 
             var timer = new Timer { Interval = 16 };
             int totalSteps = durationMs / 16;
@@ -80,13 +104,28 @@ namespace Fenceless.Util
                 {
                     timer.Stop();
                     timer.Dispose();
+                    lock (_lock) { _colorAnimations.Remove(control); }
                     control.BackColor = to;
                     onComplete?.Invoke();
                 }
             };
 
+            lock (_lock) { _colorAnimations[control] = timer; }
             control.BackColor = from;
             timer.Start();
+        }
+
+        public static void CancelColorAnimation(Control control)
+        {
+            lock (_lock)
+            {
+                if (_colorAnimations.TryGetValue(control, out var timer))
+                {
+                    timer.Stop();
+                    timer.Dispose();
+                    _colorAnimations.Remove(control);
+                }
+            }
         }
 
         private static double EaseOutQuad(double t)

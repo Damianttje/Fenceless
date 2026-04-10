@@ -27,6 +27,10 @@ namespace Fenceless.Util
         private readonly string _logFilePath;
         private readonly object _disposeLock = new object();
         private bool _disposed = false;
+        private StreamWriter _streamWriter;
+        private long _entriesSinceSizeCheck;
+        private const long MaxLogFileSize = 10 * 1024 * 1024;
+        private const long SizeCheckInterval = 100;
 
         public LogLevel MinimumLogLevel { get; set; } = LogLevel.Debug;
         public bool EnableFileOutput { get; set; } = true;
@@ -37,10 +41,8 @@ namespace Fenceless.Util
             Directory.CreateDirectory(appDataPath);
             _logFilePath = Path.Combine(appDataPath, "application.log");
 
-            // Start background log writer task
             _logWriterTask = Task.Run(ProcessLogQueue, _cancellationTokenSource.Token);
 
-            // Log startup
             Info("Logger initialized", "Logger");
         }
 
@@ -95,10 +97,11 @@ namespace Fenceless.Util
                 {
                     if (_logQueue.TryDequeue(out var logEntry))
                     {
-                        await WriteLogEntry(logEntry);
+                        WriteLogEntry(logEntry);
                     }
                     else
                     {
+                        FlushWriter();
                         await Task.Delay(50, _cancellationTokenSource.Token);
                     }
                 }
@@ -106,48 +109,79 @@ namespace Fenceless.Util
                 {
                     break;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    MessageBox.Show("An fatal error occurred in the logging system. Logging will be disabled.", "Logging Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    try
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Logger error: {ex.Message}");
+                    }
+                    catch { }
                 }
             }
 
-            // Process remaining log entries
             while (_logQueue.TryDequeue(out var logEntry))
             {
                 try
                 {
-                    await WriteLogEntry(logEntry);
+                    WriteLogEntry(logEntry);
                 }
                 catch
                 {
-                    // Ignore errors during shutdown
                 }
+            }
+
+            FlushWriter();
+        }
+
+        private void WriteLogEntry(LogEntry logEntry)
+        {
+            if (!EnableFileOutput) return;
+
+            try
+            {
+                if (_streamWriter == null)
+                {
+                    _streamWriter = new StreamWriter(_logFilePath, true, System.Text.Encoding.UTF8, 4096) { AutoFlush = false };
+                }
+
+                var formattedMessage = FormatLogEntry(logEntry);
+                _streamWriter.WriteLine(formattedMessage);
+
+                _entriesSinceSizeCheck++;
+                if (_entriesSinceSizeCheck >= SizeCheckInterval)
+                {
+                    _entriesSinceSizeCheck = 0;
+                    _streamWriter.Flush();
+                    CheckLogFileSize();
+                }
+            }
+            catch
+            {
             }
         }
 
-        private async Task WriteLogEntry(LogEntry logEntry)
+        private void CheckLogFileSize()
         {
-            var formattedMessage = FormatLogEntry(logEntry);
-
-            // Write to file (primary and only logging destination)
-            if (EnableFileOutput)
+            try
             {
-                try
+                if (_streamWriter != null && _streamWriter.BaseStream.Length > MaxLogFileSize)
                 {
-                    await File.AppendAllTextAsync(_logFilePath, formattedMessage + Environment.NewLine);
-                    
-                    // Rotate log file if it gets too large (> 10MB)
-                    var fileInfo = new FileInfo(_logFilePath);
-                    if (fileInfo.Exists && fileInfo.Length > 10 * 1024 * 1024)
-                    {
-                        RotateLogFile();
-                    }
+                    RotateLogFile();
                 }
-                catch
-                {
-                    // Ignore file errors
-                }
+            }
+            catch
+            {
+            }
+        }
+
+        private void FlushWriter()
+        {
+            try
+            {
+                _streamWriter?.Flush();
+            }
+            catch
+            {
             }
         }
 
@@ -155,6 +189,10 @@ namespace Fenceless.Util
         {
             try
             {
+                _streamWriter?.Flush();
+                _streamWriter?.Dispose();
+                _streamWriter = null;
+
                 var backupPath = _logFilePath + ".old";
                 if (File.Exists(backupPath))
                 {
@@ -164,7 +202,6 @@ namespace Fenceless.Util
             }
             catch
             {
-                MessageBox.Show("Failed to rotate log file. Logging will continue in the existing file.", "Logging Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -175,12 +212,12 @@ namespace Fenceless.Util
 
         public void FlushLogs()
         {
-            // Wait for all queued logs to be processed
             var timeout = DateTime.Now.AddSeconds(5);
             while (!_logQueue.IsEmpty && DateTime.Now < timeout)
             {
                 Thread.Sleep(10);
             }
+            FlushWriter();
         }
 
         public void Dispose()
@@ -200,7 +237,16 @@ namespace Fenceless.Util
                 }
                 catch
                 {
-                    // Ignore timeout during shutdown
+                }
+
+                try
+                {
+                    _streamWriter?.Flush();
+                    _streamWriter?.Dispose();
+                    _streamWriter = null;
+                }
+                catch
+                {
                 }
                 
                 _cancellationTokenSource?.Dispose();

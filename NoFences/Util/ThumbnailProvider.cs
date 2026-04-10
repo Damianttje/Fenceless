@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -10,6 +12,9 @@ namespace Fenceless.Util
 {
     public class ThumbnailProvider : IDisposable
     {
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern bool DestroyIcon(IntPtr hIcon);
+
         // Supported .NET images as per https://docs.microsoft.com/en-us/dotnet/api/system.drawing.image.fromfile
         private static readonly string[] SupportedExtensions =
         {
@@ -29,7 +34,7 @@ namespace Fenceless.Util
 
         // Only allow 4 concurrent images to be decoded to try and prevent OOM errors
         private readonly SemaphoreSlim semaphore = new SemaphoreSlim(4);
-        private readonly IDictionary<string, ThumbnailState> iconCache = new Dictionary<string, ThumbnailState>();
+        private readonly ConcurrentDictionary<string, ThumbnailState> iconCache = new ConcurrentDictionary<string, ThumbnailState>();
         public event EventHandler IconThumbnailLoaded;
         private bool disposed = false;
         private readonly Logger logger = Logger.Instance;
@@ -44,13 +49,13 @@ namespace Fenceless.Util
             if (disposed)
                 throw new ObjectDisposedException(nameof(ThumbnailProvider));
 
-            if (!iconCache.ContainsKey(path))
+            if (!iconCache.TryGetValue(path, out var state))
             {
                 return SubmitGeneratorTask(path).icon;
             }
             else
             {
-                return iconCache[path].icon;
+                return state.icon;
             }
         }
 
@@ -77,8 +82,10 @@ namespace Fenceless.Util
                             using (var img = Image.FromStream(ms))
                             {
                                 var thumb = (Bitmap)img.GetThumbnailImage(32, 32, () => false, IntPtr.Zero);
-                                var icon = Icon.FromHandle(thumb.GetHicon());
+                                var hIcon = thumb.GetHicon();
+                                var icon = Icon.FromHandle(hIcon);
                                 state.icon = icon;
+                                DestroyIcon(hIcon);
                                 IconThumbnailLoaded?.Invoke(this, new EventArgs());
                             }
                         }

@@ -131,27 +131,24 @@ namespace Fenceless.Util
         {
             try
             {
-                // Always try to show on main thread
-                var mainThread = System.Threading.Thread.CurrentThread;
-                if (mainThread.GetApartmentState() != System.Threading.ApartmentState.STA)
+                if (System.Windows.Forms.Application.MessageLoop)
                 {
-                    // Use a new thread for STA requirement
+                    MessageBox.Show(message, "Fenceless", MessageBoxButtons.OK, icon);
+                }
+                else
+                {
+                    var result = DialogResult.None;
                     System.Threading.ThreadStart threadStart = () => {
-                        MessageBox.Show(message, "Fenceless", MessageBoxButtons.OK, icon);
+                        result = MessageBox.Show(message, "Fenceless", MessageBoxButtons.OK, icon);
                     };
                     var thread = new System.Threading.Thread(threadStart);
                     thread.SetApartmentState(System.Threading.ApartmentState.STA);
                     thread.Start();
                     thread.Join();
                 }
-                else
-                {
-                    MessageBox.Show(message, "Fenceless", MessageBoxButtons.OK, icon);
-                }
             }
             catch (Exception ex)
             {
-                // Fallback if message box fails
                 Logger?.Error($"Failed to show user message: {ex.Message}", "ErrorHandler");
                 Debug.WriteLine($"Error: {message}");
             }
@@ -182,11 +179,12 @@ namespace Fenceless.Util
         {
             try
             {
-                // Always try to show on main thread
-                var mainThread = System.Threading.Thread.CurrentThread;
-                if (mainThread.GetApartmentState() != System.Threading.ApartmentState.STA)
+                if (System.Windows.Forms.Application.MessageLoop)
                 {
-                    // Use a new thread for STA requirement
+                    return MessageBox.Show(message, "Fenceless", buttons, icon);
+                }
+                else
+                {
                     DialogResult result = DialogResult.None;
                     System.Threading.ThreadStart threadStart = () => {
                         result = MessageBox.Show(message, "Fenceless", buttons, icon);
@@ -196,10 +194,6 @@ namespace Fenceless.Util
                     thread.Start();
                     thread.Join();
                     return result;
-                }
-                else
-                {
-                    return MessageBox.Show(message, "Fenceless", buttons, icon);
                 }
             }
             catch (Exception ex)

@@ -5,7 +5,7 @@
 	<TargetFramework>net8.0-windows</TargetFramework>
 	<UseWindowsForms>true</UseWindowsForms>
     <UseWPF>false</UseWPF>
-    <Nullable>disable</Nullable>
+    <Nullable>enable</Nullable>
     <ApplicationIcon>AppIcon.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <PlatformTarget>AnyCPU</PlatformTarget>

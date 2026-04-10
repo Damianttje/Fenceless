@@ -21,6 +21,8 @@ namespace Fenceless.Model
         private int showAllFencesHotkeyId = -1;
         private readonly Logger logger;
         private static readonly object _saveLock = new object();
+        private static readonly XmlSerializer FenceInfoSerializer = new XmlSerializer(typeof(FenceInfo));
+        private System.Threading.Timer _visibilityMonitor;
 
         public FenceManager()
         {
@@ -29,6 +31,22 @@ namespace Fenceless.Model
             EnsureDirectoryExists(basePath);
             logger.Info($"FenceManager initialized with base path: {basePath}", "FenceManager");
             InitializeGlobalHotkeys();
+            InitializeVisibilityMonitor();
+        }
+
+        private void InitializeVisibilityMonitor()
+        {
+            _visibilityMonitor = new System.Threading.Timer(_ =>
+            {
+                foreach (var fence in activeFences.ToArray())
+                {
+                    try
+                    {
+                        fence.CheckVisibility();
+                    }
+                    catch { }
+                }
+            }, null, TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(250));
         }
 
         private void InitializeGlobalHotkeys()
@@ -49,7 +67,6 @@ namespace Fenceless.Model
         {
             try
             {
-                // Unregister existing hotkeys
                 if (toggleAutoHideHotkeyId != -1)
                 {
                     hotkeyManager.UnregisterHotkey(toggleAutoHideHotkeyId);
@@ -61,20 +78,53 @@ namespace Fenceless.Model
                     showAllFencesHotkeyId = -1;
                 }
 
-                // Register toggle auto-hide hotkey (Ctrl+Alt+H by default)
-                toggleAutoHideHotkeyId = hotkeyManager.RegisterHotkey(
-                    Keys.H, ctrl: true, alt: true, action: ToggleAllFencesAutoHide);
+                var settings = AppSettings.Instance;
 
-                // Register show all fences hotkey (Ctrl+Alt+S by default)
-                showAllFencesHotkeyId = hotkeyManager.RegisterHotkey(
-                    Keys.S, ctrl: true, alt: true, action: ShowAllFences);
+                if (TryParseShortcut(settings.ToggleAutoHideShortcut, out var autoHideKey, out var autoHideCtrl, out var autoHideAlt, out var autoHideShift))
+                {
+                    toggleAutoHideHotkeyId = hotkeyManager.RegisterHotkey(
+                        autoHideKey, ctrl: autoHideCtrl, alt: autoHideAlt, shift: autoHideShift, action: ToggleAllFencesAutoHide);
+                }
 
-                logger.Info("Global hotkeys registered successfully (Ctrl+Alt+H: Toggle Auto-hide, Ctrl+Alt+S: Show All)", "FenceManager");
+                if (TryParseShortcut(settings.ShowAllFencesShortcut, out var showAllKey, out var showAllCtrl, out var showAllAlt, out var showAllShift))
+                {
+                    showAllFencesHotkeyId = hotkeyManager.RegisterHotkey(
+                        showAllKey, ctrl: showAllCtrl, alt: showAllAlt, shift: showAllShift, action: ShowAllFences);
+                }
+
+                logger.Info("Global hotkeys registered from settings", "FenceManager");
             }
             catch (Exception ex)
             {
                 logger.Error("Failed to register global hotkeys", "FenceManager", ex);
             }
+        }
+
+        private static bool TryParseShortcut(string shortcut, out Keys key, out bool ctrl, out bool alt, out bool shift)
+        {
+            key = Keys.None;
+            ctrl = false;
+            alt = false;
+            shift = false;
+
+            if (string.IsNullOrWhiteSpace(shortcut))
+                return false;
+
+            var parts = shortcut.Split('+');
+            foreach (var part in parts)
+            {
+                var trimmed = part.Trim();
+                if (trimmed.Equals("Ctrl", StringComparison.OrdinalIgnoreCase))
+                    ctrl = true;
+                else if (trimmed.Equals("Alt", StringComparison.OrdinalIgnoreCase))
+                    alt = true;
+                else if (trimmed.Equals("Shift", StringComparison.OrdinalIgnoreCase))
+                    shift = true;
+                else if (Enum.TryParse<Keys>(trimmed, true, out var parsedKey))
+                    key = parsedKey;
+            }
+
+            return key != Keys.None;
         }
 
         public void LoadFences()
@@ -131,10 +181,9 @@ namespace Fenceless.Model
         {
             try
             {
-                var serializer = new XmlSerializer(typeof(FenceInfo));
                 using (var reader = new StreamReader(metaFile))
                 {
-                    var fenceInfo = serializer.Deserialize(reader) as FenceInfo;
+                    var fenceInfo = FenceInfoSerializer.Deserialize(reader) as FenceInfo;
                     logger.Debug($"Deserialized fence info from {metaFile}", "FenceManager");
                     return fenceInfo;
                 }
@@ -152,11 +201,15 @@ namespace Fenceless.Model
             {
                 logger.Info($"Creating new fence: '{name}'", "FenceManager");
                 var settings = AppSettings.Instance;
+                
+                int posX = 100 + (activeFences.Count * 30) % 400;
+                int posY = 250 + (activeFences.Count * 30) % 300;
+                
                 var fenceInfo = new FenceInfo(Guid.NewGuid())
                 {
                     Name = name,
-                    PosX = 100,
-                    PosY = 250,
+                    PosX = posX,
+                    PosY = posY,
                     Height = settings.DefaultFenceHeight,
                     Width = settings.DefaultFenceWidth,
                     TitleHeight = settings.DefaultTitleHeight,
@@ -219,11 +272,10 @@ namespace Fenceless.Model
                 EnsureDirectoryExists(path);
 
                 var metaFile = Path.Combine(path, MetaFileName);
-                var serializer = new XmlSerializer(typeof(FenceInfo));
                 
                 using (var writer = new StreamWriter(metaFile))
                 {
-                    serializer.Serialize(writer, fenceInfo);
+                    FenceInfoSerializer.Serialize(writer, fenceInfo);
                 }
                 logger.Debug($"Updated fence '{fenceInfo.Name}' metadata", "FenceManager");
             }
@@ -488,6 +540,7 @@ namespace Fenceless.Model
             try
             {
                 logger.Info("Disposing FenceManager", "FenceManager");
+                _visibilityMonitor?.Dispose();
                 hotkeyManager?.Dispose();
                 logger.Debug("FenceManager disposed successfully", "FenceManager");
             }
