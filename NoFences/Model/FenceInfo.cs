@@ -1,8 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Xml.Serialization;
 
 namespace Fenceless.Model
 {
+    public enum FenceType
+    {
+        Standard = 0,
+        LiveFolder = 1,
+        RunningTasks = 2,
+        ClipboardHistory = 3
+    }
+
     public class FenceInfo
     {
         /* 
@@ -54,22 +63,22 @@ namespace Fenceless.Model
         /// <summary>
         /// Gets or sets the background color of the fence (ARGB format)
         /// </summary>
-        public int BackgroundColor { get; set; } = unchecked((int)0xFF000000); // Black with full alpha
+        public int BackgroundColor { get; set; } = unchecked((int)0xFF000000);
 
         /// <summary>
         /// Gets or sets the title background color of the fence (ARGB format)
         /// </summary>
-        public int TitleBackgroundColor { get; set; } = unchecked((int)0x80000000); // Semi-transparent black
+        public int TitleBackgroundColor { get; set; } = unchecked((int)0x80000000);
 
         /// <summary>
         /// Gets or sets the text color of the fence (ARGB format)
         /// </summary>
-        public int TextColor { get; set; } = unchecked((int)0xFFFFFFFF); // White
+        public int TextColor { get; set; } = unchecked((int)0xFFFFFFFF);
 
         /// <summary>
         /// Gets or sets the border color of the fence (ARGB format)
         /// </summary>
-        public int BorderColor { get; set; } = unchecked((int)0xFF808080); // Gray
+        public int BorderColor { get; set; } = unchecked((int)0xFF808080);
 
         /// <summary>
         /// Gets or sets the border width in pixels
@@ -123,6 +132,31 @@ namespace Fenceless.Model
         public bool SortAscending { get; set; } = true;
 
         public string SearchFilter { get; set; } = "";
+
+        public int FenceTypeValue { get; set; } = 0;
+
+        [XmlIgnore]
+        public FenceType FenceType
+        {
+            get => (FenceType)FenceTypeValue;
+            set => FenceTypeValue = (int)value;
+        }
+
+        public string WatchPath { get; set; } = "";
+
+        public bool WatchRecursive { get; set; } = false;
+
+        public string FileFilter { get; set; } = "";
+
+        public int MaxItems { get; set; } = 50;
+
+        public int UpdateInterval { get; set; } = 3000;
+
+        public bool ShowMinimizedWindows { get; set; } = true;
+
+        public string ProcessFilter { get; set; } = "";
+
+        public bool CaptureImages { get; set; } = true;
 
         public FenceInfo()
         {

@@ -284,11 +284,11 @@ namespace Fenceless.Model
             }
         }
 
-        public void CreateFence(string name)
+        public void CreateFence(string name, FenceType fenceType = FenceType.Standard)
         {
             try
             {
-                logger.Info($"Creating new fence: '{name}'", "FenceManager");
+                logger.Info($"Creating new fence: '{name}' (type: {fenceType})", "FenceManager");
                 var settings = AppSettings.Instance;
                 
                 int posX = 100 + (activeFences.Count * 30) % 400;
@@ -317,8 +317,27 @@ namespace Fenceless.Model
                     CornerRadius = settings.DefaultCornerRadius,
                     ShowShadow = settings.DefaultShowShadow,
                     IconSize = settings.DefaultIconSize,
-                    ItemSpacing = settings.DefaultItemSpacing
+                    ItemSpacing = settings.DefaultItemSpacing,
+                    FenceType = fenceType
                 };
+
+                switch (fenceType)
+                {
+                    case FenceType.LiveFolder:
+                        fenceInfo.MaxItems = 50;
+                        fenceInfo.UpdateInterval = 3000;
+                        fenceInfo.WatchRecursive = false;
+                        break;
+                    case FenceType.RunningTasks:
+                        fenceInfo.MaxItems = 20;
+                        fenceInfo.UpdateInterval = 3000;
+                        fenceInfo.ShowMinimizedWindows = true;
+                        break;
+                    case FenceType.ClipboardHistory:
+                        fenceInfo.MaxItems = 50;
+                        fenceInfo.CaptureImages = true;
+                        break;
+                }
 
                 UpdateFence(fenceInfo);
                 var fenceWindow = new FenceWindow(fenceInfo);
@@ -564,7 +583,7 @@ namespace Fenceless.Model
                 logger.Info("Refreshing all fences", "FenceManager");
                 foreach (var fence in activeFences.ToList())
                 {
-                    fence.Refresh();
+                    fence.RefreshFence();
                 }
             }
             catch (Exception ex)

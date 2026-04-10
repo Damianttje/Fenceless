@@ -74,6 +74,8 @@ namespace Fenceless
 
         private readonly ThumbnailProvider thumbnailProvider = new ThumbnailProvider();
 
+        private IFenceProvider fenceProvider;
+
         private readonly ToolTip itemToolTip = new ToolTip { InitialDelay = 500, ReshowDelay = 200, AutomaticDelay = 500 };
 
         // Override CreateParams to hide from Alt+Tab and prevent minimize on Show Desktop
@@ -140,6 +142,8 @@ namespace Fenceless
             InitializeAutoHide();
             
             Minify();
+
+            InitializeFenceProvider();
             
             logger.Info($"Fence window '{fenceInfo.Name}' created successfully at ({fenceInfo.PosX}, {fenceInfo.PosY})", "FenceWindow");
         }
@@ -430,6 +434,48 @@ namespace Fenceless
             autoHideTimer.Stop();
         }
 
+        private void InitializeFenceProvider()
+        {
+            try
+            {
+                switch (fenceInfo.FenceType)
+                {
+                    case FenceType.LiveFolder:
+                        fenceProvider = new LiveFolderFence(fenceInfo);
+                        break;
+                    case FenceType.RunningTasks:
+                        fenceProvider = new RunningTasksFence(fenceInfo);
+                        break;
+                    case FenceType.ClipboardHistory:
+                        fenceProvider = new ClipboardHistoryFence(fenceInfo);
+                        break;
+                }
+
+                if (fenceProvider != null)
+                {
+                    fenceProvider.ItemsChanged += () =>
+                    {
+                        try
+                        {
+                            if (IsHandleCreated && !IsDisposed)
+                            {
+                                BeginInvoke(new Action(() =>
+                                {
+                                    if (!IsDisposed) Invalidate();
+                                }));
+                            }
+                        }
+                        catch { }
+                    };
+                    logger.Info($"Initialized {fenceInfo.FenceType} provider for fence '{fenceInfo.Name}'", "FenceWindow");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Failed to initialize fence provider for '{fenceInfo.Name}'", "FenceWindow", ex);
+            }
+        }
+
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
@@ -439,6 +485,11 @@ namespace Fenceless
             
             // Prevent minimize to survive Show Desktop
             DesktopUtil.PreventMinimize(Handle);
+
+            if (fenceProvider is ClipboardHistoryFence clipboardFence)
+            {
+                clipboardFence.StartListening(Handle);
+            }
             
             logger?.Debug($"Fence window '{fenceInfo?.Name ?? "Unknown"}' configured to prevent minimize", "FenceWindow");
         }
@@ -606,6 +657,14 @@ namespace Fenceless
             {
                 SendToDesktopBack();
                 return;
+            }
+
+            if (m.Msg == 0x031D) // WM_CLIPBOARDUPDATE
+            {
+                if (fenceProvider is ClipboardHistoryFence clipboardFence)
+                {
+                    clipboardFence.OnClipboardChanged();
+                }
             }
 
             // Handle DPI change when dragged between monitors with different DPI
@@ -1271,6 +1330,7 @@ namespace Fenceless
                 searchBox?.Dispose();
                 throttledMove?.Dispose();
                 throttledResize?.Dispose();
+                fenceProvider?.Dispose();
                 // Note: ShellContextMenu doesn't implement IDisposable
             }
             base.Dispose(disposing);
@@ -1288,36 +1348,55 @@ namespace Fenceless
 
         private void FenceWindow_DoubleClick(object sender, EventArgs e)
         {
-            // Only handle double-click if we're not dragging and not in a drag gesture
             if (!isDraggingItem && selectedItem != null)
             {
-                // Get the current mouse position and check if it's over an item
                 var mousePos = PointToClient(MousePosition);
                 var itemPath = GetItemAtPosition(mousePos);
                 
-                // Verify the double-clicked item still exists and matches the selected item
-                if (itemPath != null && itemPath == selectedItem && ItemExists(itemPath))
+                if (itemPath != null && itemPath == selectedItem)
                 {
-                    // Open the item directly
-                    var entry = FenceEntry.FromPath(itemPath);
-                    if (entry != null)
+                    if (itemPath.StartsWith("task:"))
                     {
-                        logger.Info($"Double-clicked item '{System.IO.Path.GetFileName(itemPath)}' in fence '{fenceInfo.Name}'", "FenceWindow");
-                        entry.Open();
+                        if (RunningTasksFence.TryBringToFront(itemPath))
+                        {
+                            logger.Info($"Brought window to front in fence '{fenceInfo.Name}'", "FenceWindow");
+                            return;
+                        }
                     }
-                    else
+                    else if (itemPath.StartsWith("clip:"))
                     {
-                        logger.Warning($"Could not create entry for item: {itemPath}", "FenceWindow");
+                        var parts = itemPath.Split(new[] { ':' }, 3);
+                        if (parts.Length >= 2 && int.TryParse(parts[1], out int index))
+                        {
+                            var clipboardFence = fenceProvider as ClipboardHistoryFence;
+                            var text = clipboardFence?.GetClipboardText(index);
+                            if (text != null)
+                            {
+                                try { Clipboard.SetText(text); }
+                                catch { }
+                                logger.Info($"Copied clipboard history item to clipboard in fence '{fenceInfo.Name}'", "FenceWindow");
+                                return;
+                            }
+                        }
                     }
-                }
-                else if (itemPath != null && !ItemExists(itemPath))
-                {
-                    // Item no longer exists, remove it
-                    logger.Warning($"Double-clicked item no longer exists, removing: {itemPath}", "FenceWindow");
-                    fenceInfo.Files.Remove(itemPath);
-                    selectedItem = null;
-                    Save();
-                    Refresh();
+                    else if (ItemExists(itemPath))
+                    {
+                        var entry = FenceEntry.FromPath(itemPath);
+                        if (entry != null)
+                        {
+                            logger.Info($"Double-clicked item '{System.IO.Path.GetFileName(itemPath)}' in fence '{fenceInfo.Name}'", "FenceWindow");
+                            entry.Open();
+                            return;
+                        }
+                    }
+                    else if (!itemPath.StartsWith("task:") && !itemPath.StartsWith("clip:"))
+                    {
+                        logger.Warning($"Double-clicked item no longer exists, removing: {itemPath}", "FenceWindow");
+                        fenceInfo.Files.Remove(itemPath);
+                        selectedItem = null;
+                        Save();
+                        Refresh();
+                    }
                 }
             }
         }
@@ -1386,6 +1465,16 @@ namespace Fenceless
                 fenceInfo.IconSize = updatedInfo.IconSize;
                 fenceInfo.ItemSpacing = updatedInfo.ItemSpacing;
                 
+                fenceInfo.FenceType = updatedInfo.FenceType;
+                fenceInfo.WatchPath = updatedInfo.WatchPath;
+                fenceInfo.WatchRecursive = updatedInfo.WatchRecursive;
+                fenceInfo.FileFilter = updatedInfo.FileFilter;
+                fenceInfo.MaxItems = updatedInfo.MaxItems;
+                fenceInfo.UpdateInterval = updatedInfo.UpdateInterval;
+                fenceInfo.ShowMinimizedWindows = updatedInfo.ShowMinimizedWindows;
+                fenceInfo.ProcessFilter = updatedInfo.ProcessFilter;
+                fenceInfo.CaptureImages = updatedInfo.CaptureImages;
+                
                 logger.Info($"Fence info updated for '{fenceInfo.Name}'", "FenceWindow");
             }
             catch (Exception ex)
@@ -1409,6 +1498,12 @@ namespace Fenceless
         public void CycleTransparency()
         {
             ToggleTransparency();
+        }
+
+        public void RefreshFence()
+        {
+            fenceProvider?.Refresh();
+            Invalidate();
         }
 
         public void ClampToScreen()
@@ -1875,10 +1970,6 @@ namespace Fenceless
             
             foreach (var file in fenceInfo.Files)
             {
-                var entry = FenceEntry.FromPath(file);
-                if (entry == null)
-                    continue;
-
                 var itemRect = new Rectangle(x, y + titleHeight - scrollOffset, layout.ActualItemWidth, layout.ActualItemHeight);
                 
                 if (itemRect.Contains(position))

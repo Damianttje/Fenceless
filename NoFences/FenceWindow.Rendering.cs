@@ -215,11 +215,18 @@ namespace Fenceless
                 {
                     try
                     {
-                        var entry = FenceEntry.FromPath(file);
-                        if (entry == null)
-                            continue;
+                        if (file.StartsWith("task:") || file.StartsWith("clip:"))
+                        {
+                            RenderVirtualEntry(e.Graphics, file, x, y + titleHeight - scrollOffset, layout.ActualItemWidth, layout.ActualItemHeight, fenceInfo.IconSize, textColor);
+                        }
+                        else
+                        {
+                            var entry = FenceEntry.FromPath(file);
+                            if (entry == null)
+                                continue;
 
-                        RenderEntry(e.Graphics, entry, x, y + titleHeight - scrollOffset, layout.ActualItemWidth, layout.ActualItemHeight, fenceInfo.IconSize, textColor);
+                            RenderEntry(e.Graphics, entry, x, y + titleHeight - scrollOffset, layout.ActualItemWidth, layout.ActualItemHeight, fenceInfo.IconSize, textColor);
+                        }
 
                         var itemBottom = y + layout.ActualItemHeight;
                         if (itemBottom > scrollHeight)
@@ -261,7 +268,20 @@ namespace Fenceless
                 {
                     try
                     {
-                        if (File.Exists(hoveringItem))
+                        if (hoveringItem.StartsWith("task:"))
+                        {
+                            var title = RunningTasksFence.GetWindowTitle(hoveringItem);
+                            itemToolTip.SetToolTip(this, $"[Window] {title}");
+                        }
+                        else if (hoveringItem.StartsWith("clip:"))
+                        {
+                            var parts = hoveringItem.Split(new[] { ':' }, 3);
+                            if (parts.Length >= 3)
+                                itemToolTip.SetToolTip(this, $"[Clipboard] {parts[2]}");
+                            else
+                                itemToolTip.SetToolTip(this, "[Clipboard item]");
+                        }
+                        else if (File.Exists(hoveringItem))
                         {
                             var fileInfo = new System.IO.FileInfo(hoveringItem);
                             var size = FormatFileSize(fileInfo.Length);
@@ -394,6 +414,107 @@ namespace Fenceless
             path.CloseFigure();
             return path;
         }
+
+        #region Virtual Entry Rendering
+
+        private void RenderVirtualEntry(Graphics g, string entry, int x, int y, int entryWidth, int entryHeight, int iconSize, Color textColor)
+        {
+            try
+            {
+                bool isTask = entry.StartsWith("task:");
+                bool isClip = entry.StartsWith("clip:");
+
+                string displayName;
+                Icon icon;
+
+                if (isTask)
+                {
+                    displayName = RunningTasksFence.GetWindowTitle(entry);
+                    icon = SystemIcons.Application;
+                }
+                else if (isClip)
+                {
+                    var parts = entry.Split(new[] { ':' }, 3);
+                    displayName = parts.Length >= 3 ? parts[2] : "Clipboard item";
+                    icon = SystemIcons.Information;
+                }
+                else
+                {
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(displayName))
+                    displayName = "(unnamed)";
+
+                var textPosition = new PointF(x, y + iconSize + 5);
+                var textMaxSize = new SizeF(entryWidth, textHeight);
+                var stringFormat = new StringFormat { Alignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
+
+                var textSize = g.MeasureString(displayName, iconFont, textMaxSize, stringFormat);
+                var outlineRect = new Rectangle(x - 2, y - 2, entryWidth + 2, iconSize + (int)textSize.Height + 5 + 2);
+                var outlineRectInner = outlineRect.Shrink(1);
+
+                var mousePos = PointToClient(MousePosition);
+                var mouseOver = !isDraggingItem && mousePos.X >= x && mousePos.Y >= y && mousePos.X < x + outlineRect.Width && mousePos.Y < y + outlineRect.Height;
+
+                if (mouseOver)
+                {
+                    hoveringItem = entry;
+                    hasHoverUpdated = true;
+                }
+
+                if (mouseOver && shouldUpdateSelection)
+                {
+                    selectedItem = entry;
+                    shouldUpdateSelection = false;
+                    hasSelectionUpdated = true;
+                }
+
+                if ((selectedItem == entry || selectedItems.Contains(entry)))
+                {
+                    if (mouseOver)
+                    {
+                        var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(180, SystemColors.ActiveBorder), 2);
+                        var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(120, SystemColors.GradientActiveCaption));
+                        g.DrawRectangle(pen, outlineRectInner);
+                        g.FillRectangle(brush, outlineRect);
+                    }
+                    else
+                    {
+                        var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(150, SystemColors.ActiveBorder), 2);
+                        var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(100, SystemColors.GradientInactiveCaption));
+                        g.DrawRectangle(pen, outlineRectInner);
+                        g.FillRectangle(brush, outlineRect);
+                    }
+                }
+                else if (mouseOver)
+                {
+                    var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(120, SystemColors.ActiveBorder), 1);
+                    var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(80, SystemColors.ActiveCaption));
+                    g.DrawRectangle(pen, outlineRectInner);
+                    g.FillRectangle(brush, outlineRect);
+                }
+
+                var iconRect = new Rectangle(x + entryWidth / 2 - iconSize / 2, y, iconSize, iconSize);
+                g.DrawIcon(icon, iconRect);
+
+                if (fenceInfo.ShowShadow)
+                {
+                    var shadowBrush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(180, 15, 15, 15));
+                    g.DrawString(displayName, iconFont, shadowBrush,
+                        new RectangleF(textPosition.Move(shadowDist, shadowDist), textMaxSize), stringFormat);
+                }
+
+                var textBrush = GraphicsOptimizer.GetCachedBrush(textColor);
+                g.DrawString(displayName, iconFont, textBrush, new RectangleF(textPosition, textMaxSize), stringFormat);
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Error rendering virtual entry '{entry}': {ex.Message}", "FenceWindow", ex);
+            }
+        }
+
+        #endregion
 
         #region Drag Feedback Rendering
 

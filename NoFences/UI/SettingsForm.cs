@@ -75,6 +75,7 @@ namespace Fenceless.UI
         #region Fences Page Controls
         private ListBox lstFences;
         private FlowLayoutPanel fenceSettingsPanel;
+        private ComboBox cmbFenceType;
         private TextBox txtFenceName;
         private NumericUpDown nudFenceTransparency;
         private ToggleSwitch chkFenceAutoHide;
@@ -99,6 +100,24 @@ namespace Fenceless.UI
         private NumericUpDown nudFenceItemSpacing;
         private Button btnResetToDefaults;
         private Button btnSetAsDefaults;
+        #endregion
+
+        #region Type-Specific Controls
+        private Panel liveFolderPanel;
+        private TextBox txtWatchPath;
+        private ToggleSwitch chkWatchRecursive;
+        private TextBox txtFileFilter;
+        private NumericUpDown nudLiveFolderMaxItems;
+
+        private Panel runningTasksPanel;
+        private NumericUpDown nudUpdateInterval;
+        private ToggleSwitch chkShowMinimizedWindows;
+        private TextBox txtProcessFilter;
+        private NumericUpDown nudRunningTasksMaxItems;
+
+        private Panel clipboardHistoryPanel;
+        private NumericUpDown nudClipboardMaxItems;
+        private ToggleSwitch chkCaptureImages;
         #endregion
 
         public SettingsForm()
@@ -493,6 +512,13 @@ namespace Fenceless.UI
 
         private void CreateFenceSettingsEditor()
         {
+            var typeSection = Theme.CreateSection("Fence Type", 500);
+
+            cmbFenceType = Theme.CreateComboBox(new[] { "Standard", "Live Folder", "Running Tasks", "Clipboard History" });
+            cmbFenceType.Width = 200;
+            typeSection.Controls.Add(CreateSettingsRow("Type", cmbFenceType));
+            cmbFenceType.SelectedIndexChanged += (s, e) => { if (!isUpdatingControls) UpdateTypeSpecificVisibility(); };
+
             var basicSection = Theme.CreateSection("Basic Settings", 500);
 
             txtFenceName = Theme.CreateTextBox();
@@ -573,10 +599,110 @@ namespace Fenceless.UI
             actionPanel.Controls.AddRange(new Control[] { btnResetToDefaults, btnSetAsDefaults });
 
             fenceSettingsPanel.Controls.Add(actionPanel);
+            AddSection(fenceSettingsPanel, typeSection, 1);
             AddSection(fenceSettingsPanel, basicSection, 6);
             AddSection(fenceSettingsPanel, sizeSection, 3);
             AddColorSection(fenceSettingsPanel, colorsSection, 4);
             AddSection(fenceSettingsPanel, styleSection, 5);
+
+            CreateTypeSpecificPanels();
+        }
+
+        private void CreateTypeSpecificPanels()
+        {
+            liveFolderPanel = Theme.CreateSection("Live Folder Settings", 500);
+            txtWatchPath = Theme.CreateTextBox();
+            txtWatchPath.Width = 300;
+            var btnBrowse = Theme.CreateFlatButton("Browse");
+            btnBrowse.Size = new Size(70, Theme.Sizes.ButtonHeight);
+            btnBrowse.Click += BtnBrowseWatchPath_Click;
+
+            var watchPathRow = new Panel
+            {
+                Height = 32,
+                Dock = DockStyle.Top,
+                BackColor = Color.Transparent,
+                Margin = new Padding(0, 2, 0, 2)
+            };
+            var watchPathLabel = Theme.CreateLabel("Watch Path");
+            watchPathLabel.Location = new Point(0, (32 - watchPathLabel.Height) / 2);
+            watchPathLabel.Width = 160;
+            txtWatchPath.Location = new Point(170, (32 - txtWatchPath.Height) / 2);
+            btnBrowse.Location = new Point(480, (32 - btnBrowse.Height) / 2);
+            watchPathRow.Controls.Add(btnBrowse);
+            watchPathRow.Controls.Add(txtWatchPath);
+            watchPathRow.Controls.Add(watchPathLabel);
+            liveFolderPanel.Controls.Add(watchPathRow);
+
+            chkWatchRecursive = new ToggleSwitch();
+            liveFolderPanel.Controls.Add(CreateSettingsRow("Recursive", chkWatchRecursive));
+
+            txtFileFilter = Theme.CreateTextBox();
+            txtFileFilter.Width = 200;
+            liveFolderPanel.Controls.Add(CreateSettingsRow("File Filter", txtFileFilter));
+
+            nudLiveFolderMaxItems = Theme.CreateNumericUpDown(1, 500, 50);
+            nudLiveFolderMaxItems.Width = 100;
+            liveFolderPanel.Controls.Add(CreateSettingsRow("Max Items", nudLiveFolderMaxItems));
+
+            liveFolderPanel.Height = 28 + 4 * 36 + 12;
+            fenceSettingsPanel.Controls.Add(liveFolderPanel);
+
+            runningTasksPanel = Theme.CreateSection("Running Tasks Settings", 500);
+            nudUpdateInterval = Theme.CreateNumericUpDown(500, 30000, 3000);
+            nudUpdateInterval.Width = 100;
+            runningTasksPanel.Controls.Add(CreateSettingsRow("Update Interval (ms)", nudUpdateInterval));
+
+            chkShowMinimizedWindows = new ToggleSwitch { Checked = true };
+            runningTasksPanel.Controls.Add(CreateSettingsRow("Show Minimized", chkShowMinimizedWindows));
+
+            txtProcessFilter = Theme.CreateTextBox();
+            txtProcessFilter.Width = 200;
+            runningTasksPanel.Controls.Add(CreateSettingsRow("Process Filter", txtProcessFilter));
+
+            nudRunningTasksMaxItems = Theme.CreateNumericUpDown(1, 100, 20);
+            nudRunningTasksMaxItems.Width = 100;
+            runningTasksPanel.Controls.Add(CreateSettingsRow("Max Items", nudRunningTasksMaxItems));
+
+            runningTasksPanel.Height = 28 + 4 * 36 + 12;
+            fenceSettingsPanel.Controls.Add(runningTasksPanel);
+
+            clipboardHistoryPanel = Theme.CreateSection("Clipboard History Settings", 500);
+            nudClipboardMaxItems = Theme.CreateNumericUpDown(5, 200, 50);
+            nudClipboardMaxItems.Width = 100;
+            clipboardHistoryPanel.Controls.Add(CreateSettingsRow("Max Items", nudClipboardMaxItems));
+
+            chkCaptureImages = new ToggleSwitch { Checked = true };
+            clipboardHistoryPanel.Controls.Add(CreateSettingsRow("Capture Images", chkCaptureImages));
+
+            clipboardHistoryPanel.Height = 28 + 2 * 36 + 12;
+            fenceSettingsPanel.Controls.Add(clipboardHistoryPanel);
+        }
+
+        private void BtnBrowseWatchPath_Click(object sender, EventArgs e)
+        {
+            using (var dialog = new FolderBrowserDialog())
+            {
+                dialog.Description = "Select folder to watch";
+                if (!string.IsNullOrEmpty(txtWatchPath.Text) && System.IO.Directory.Exists(txtWatchPath.Text))
+                    dialog.SelectedPath = txtWatchPath.Text;
+
+                if (dialog.ShowDialog(this) == DialogResult.OK)
+                {
+                    txtWatchPath.Text = dialog.SelectedPath;
+                    DebounceFenceSettingsSave();
+                }
+            }
+        }
+
+        private void UpdateTypeSpecificVisibility()
+        {
+            if (cmbFenceType.SelectedIndex < 0) return;
+            var type = (FenceType)cmbFenceType.SelectedIndex;
+
+            liveFolderPanel.Visible = type == FenceType.LiveFolder;
+            runningTasksPanel.Visible = type == FenceType.RunningTasks;
+            clipboardHistoryPanel.Visible = type == FenceType.ClipboardHistory;
         }
 
         #endregion
@@ -753,6 +879,19 @@ namespace Fenceless.UI
             chkFenceShowShadow.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
             cmbFenceIconSize.SelectedIndexChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
             nudFenceItemSpacing.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+
+            txtWatchPath.TextChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            chkWatchRecursive.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            txtFileFilter.TextChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            nudLiveFolderMaxItems.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+
+            nudUpdateInterval.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            chkShowMinimizedWindows.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            txtProcessFilter.TextChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            nudRunningTasksMaxItems.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+
+            nudClipboardMaxItems.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
+            chkCaptureImages.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceFenceSettingsSave(); };
         }
 
         #endregion
@@ -866,6 +1005,9 @@ namespace Fenceless.UI
                 isUpdatingControls = true;
                 logger.Debug($"Loading settings for fence '{selectedFenceInfo.Name}'", "SettingsForm");
 
+                cmbFenceType.SelectedIndex = (int)selectedFenceInfo.FenceType;
+                UpdateTypeSpecificVisibility();
+
                 txtFenceName.Text = selectedFenceInfo.Name;
                 nudFenceTransparency.Value = selectedFenceInfo.Transparency;
                 chkFenceAutoHide.Checked = selectedFenceInfo.AutoHide;
@@ -890,6 +1032,19 @@ namespace Fenceless.UI
                 chkFenceShowShadow.Checked = selectedFenceInfo.ShowShadow;
                 cmbFenceIconSize.SelectedItem = selectedFenceInfo.IconSize.ToString();
                 nudFenceItemSpacing.Value = selectedFenceInfo.ItemSpacing;
+
+                txtWatchPath.Text = selectedFenceInfo.WatchPath;
+                chkWatchRecursive.Checked = selectedFenceInfo.WatchRecursive;
+                txtFileFilter.Text = selectedFenceInfo.FileFilter;
+                nudLiveFolderMaxItems.Value = selectedFenceInfo.MaxItems > 0 ? selectedFenceInfo.MaxItems : 50;
+
+                nudUpdateInterval.Value = selectedFenceInfo.UpdateInterval > 0 ? selectedFenceInfo.UpdateInterval : 3000;
+                chkShowMinimizedWindows.Checked = selectedFenceInfo.ShowMinimizedWindows;
+                txtProcessFilter.Text = selectedFenceInfo.ProcessFilter;
+                nudRunningTasksMaxItems.Value = selectedFenceInfo.MaxItems > 0 ? selectedFenceInfo.MaxItems : 20;
+
+                nudClipboardMaxItems.Value = selectedFenceInfo.MaxItems > 0 ? selectedFenceInfo.MaxItems : 50;
+                chkCaptureImages.Checked = selectedFenceInfo.CaptureImages;
             }
             catch (Exception ex)
             {
@@ -1027,6 +1182,10 @@ namespace Fenceless.UI
 
             try
             {
+                selectedFenceInfo.FenceType = cmbFenceType.SelectedIndex >= 0
+                    ? (FenceType)cmbFenceType.SelectedIndex
+                    : FenceType.Standard;
+
                 selectedFenceInfo.Name = txtFenceName.Text;
                 selectedFenceInfo.Transparency = (int)nudFenceTransparency.Value;
                 selectedFenceInfo.AutoHide = chkFenceAutoHide.Checked;
@@ -1052,6 +1211,17 @@ namespace Fenceless.UI
                 if (int.TryParse(cmbFenceIconSize.SelectedItem?.ToString(), out int iconSize))
                     selectedFenceInfo.IconSize = iconSize;
                 selectedFenceInfo.ItemSpacing = (int)nudFenceItemSpacing.Value;
+
+                selectedFenceInfo.WatchPath = txtWatchPath.Text;
+                selectedFenceInfo.WatchRecursive = chkWatchRecursive.Checked;
+                selectedFenceInfo.FileFilter = txtFileFilter.Text;
+                selectedFenceInfo.MaxItems = (int)nudLiveFolderMaxItems.Value;
+
+                selectedFenceInfo.UpdateInterval = (int)nudUpdateInterval.Value;
+                selectedFenceInfo.ShowMinimizedWindows = chkShowMinimizedWindows.Checked;
+                selectedFenceInfo.ProcessFilter = txtProcessFilter.Text;
+
+                selectedFenceInfo.CaptureImages = chkCaptureImages.Checked;
 
                 FenceManager.Instance.UpdateFence(selectedFenceInfo);
                 FenceManager.Instance.ApplySettingsToFence(selectedFenceInfo);
@@ -1098,12 +1268,29 @@ namespace Fenceless.UI
 
         private void BtnAdd_Click(object sender, EventArgs e)
         {
-            using (var dialog = new TextDialog("New Fence", "Enter fence name:"))
+            using (var nameDialog = new TextDialog("New Fence", "Enter fence name:"))
             {
-                if (dialog.ShowDialog(this) == DialogResult.OK)
+                if (nameDialog.ShowDialog(this) != DialogResult.OK) return;
+
+                var typeNames = new[] { "Standard", "Live Folder", "Running Tasks", "Clipboard History" };
+                using (var typeDialog = new TextDialog("Fence Type", "Type (Standard/Live Folder/Running Tasks/Clipboard History):", "Standard"))
                 {
-                    FenceManager.Instance.CreateFence(dialog.InputText);
-                    LoadFences();
+                    if (typeDialog.ShowDialog(this) == DialogResult.OK)
+                    {
+                        var typeText = typeDialog.InputText;
+                        FenceType type = FenceType.Standard;
+                        for (int i = 0; i < typeNames.Length; i++)
+                        {
+                            if (typeNames[i].Equals(typeText, StringComparison.OrdinalIgnoreCase))
+                            {
+                                type = (FenceType)i;
+                                break;
+                            }
+                        }
+
+                        FenceManager.Instance.CreateFence(nameDialog.InputText, type);
+                        LoadFences();
+                    }
                 }
             }
         }
@@ -1298,9 +1485,14 @@ namespace Fenceless.UI
                 e.Graphics.FillRectangle(backgroundBrush, e.Bounds);
             }
 
+            var typeNames = new[] { "", "\u25CF ", "\u25B6 ", "\u2630 " };
+            var typeLabel = fence.FenceType != FenceType.Standard && (int)fence.FenceType < typeNames.Length
+                ? typeNames[(int)fence.FenceType]
+                : "";
+
             using (var textBrush = new SolidBrush(Theme.Colors.TextPrimary))
             {
-                e.Graphics.DrawString(fence.Name, Theme.Fonts.Body, textBrush,
+                e.Graphics.DrawString($"{typeLabel}{fence.Name}", Theme.Fonts.Body, textBrush,
                     new Rectangle(e.Bounds.X + 8, e.Bounds.Y, e.Bounds.Width - 16, e.Bounds.Height),
                     StringFormat.GenericDefault);
             }
