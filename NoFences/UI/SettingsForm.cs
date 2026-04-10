@@ -10,73 +10,38 @@ using System.Windows.Forms;
 
 namespace Fenceless.UI
 {
-    public partial class SettingsForm : Form
+    public class SettingsForm : ThemedForm
     {
         private readonly Logger logger;
         private List<FenceInfo> fenceInfos;
         private FenceInfo selectedFenceInfo;
         private bool isUpdatingControls = false;
 
-        public SettingsForm()
-        {
-            logger = Logger.Instance;
-            logger.Debug("Creating settings form", "SettingsForm");
+        private SidebarNavigation sidebar;
+        private AnimatedPagePanel pagePanel;
+        private Panel footerPanel;
 
-            InitializeComponent();
-            LoadSettings();
-            LoadFences();
-        }
+        private const string PageGeneral = "general";
+        private const string PageAppearance = "appearance";
+        private const string PageHotkeys = "hotkeys";
+        private const string PageFences = "fences";
 
-        private void InitializeComponent()
-        {
-            this.SuspendLayout();
-
-            // Form setup
-            this.Text = "Fenceless Settings";
-            this.Size = new Size(1200, 700);
-            this.MaximizeBox = true;
-            this.MinimizeBox = true;
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.ShowInTaskbar = false;
-            this.MinimumSize = new Size(800, 600);
-
-            CreateControls();
-            SetupEventHandlers();
-
-            this.ResumeLayout(false);
-        }
-
-        #region Control Declarations
-
-        // Main layout
-        private TabControl mainTabControl;
-        private TabPage globalTab;
-        private TabPage defaultsTab;
-        private TabPage fencesTab;
-
-        // Global Settings Controls
-        private CheckBox chkAutoSave;
+        #region General Page Controls
+        private ToggleSwitch chkAutoSave;
         private NumericUpDown nudAutoSaveInterval;
-        private CheckBox chkShowTooltips;
-        private CheckBox chkEnableAnimations;
-        private CheckBox chkStartWithWindows;
+        private ToggleSwitch chkShowTooltips;
+        private ToggleSwitch chkEnableAnimations;
+        private ToggleSwitch chkStartWithWindows;
         private ComboBox cmbLogLevel;
-        private CheckBox chkEnableFileLogging;
-        private TextBox txtToggleTransparencyShortcut;
-        private TextBox txtToggleAutoHideShortcut;
-        private TextBox txtShowAllFencesShortcut;
-        private TextBox txtCreateNewFenceShortcut;
-        private TextBox txtOpenSettingsShortcut;
-        private TextBox txtToggleLockShortcut;
-        private TextBox txtMinimizeAllFencesShortcut;
-        private TextBox txtRefreshFencesShortcut;
+        private ToggleSwitch chkEnableFileLogging;
+        #endregion
 
-        // Default Settings Controls
+        #region Appearance Page Controls
         private NumericUpDown nudDefaultFenceWidth;
         private NumericUpDown nudDefaultFenceHeight;
         private NumericUpDown nudDefaultTitleHeight;
         private NumericUpDown nudDefaultTransparency;
-        private CheckBox chkDefaultAutoHide;
+        private ToggleSwitch chkDefaultAutoHide;
         private NumericUpDown nudDefaultAutoHideDelay;
         private Button btnDefaultBackgroundColor;
         private NumericUpDown nudDefaultBackgroundTransparency;
@@ -88,19 +53,31 @@ namespace Fenceless.UI
         private NumericUpDown nudDefaultBorderTransparency;
         private NumericUpDown nudDefaultBorderWidth;
         private NumericUpDown nudDefaultCornerRadius;
-        private CheckBox chkDefaultShowShadow;
+        private ToggleSwitch chkDefaultShowShadow;
         private ComboBox cmbDefaultIconSize;
         private NumericUpDown nudDefaultItemSpacing;
+        #endregion
 
-        // Fence Management Controls
+        #region Hotkey Page Controls
+        private HotkeyCaptureBox txtToggleTransparencyShortcut;
+        private HotkeyCaptureBox txtToggleAutoHideShortcut;
+        private HotkeyCaptureBox txtShowAllFencesShortcut;
+        private HotkeyCaptureBox txtCreateNewFenceShortcut;
+        private HotkeyCaptureBox txtOpenSettingsShortcut;
+        private HotkeyCaptureBox txtToggleLockShortcut;
+        private HotkeyCaptureBox txtMinimizeAllFencesShortcut;
+        private HotkeyCaptureBox txtRefreshFencesShortcut;
+        #endregion
+
+        #region Fences Page Controls
         private ListBox lstFences;
-        private GroupBox grpFenceSettings;
+        private FlowLayoutPanel fenceSettingsPanel;
         private TextBox txtFenceName;
         private NumericUpDown nudFenceTransparency;
-        private CheckBox chkFenceAutoHide;
+        private ToggleSwitch chkFenceAutoHide;
         private NumericUpDown nudFenceAutoHideDelay;
-        private CheckBox chkFenceLocked;
-        private CheckBox chkFenceCanMinify;
+        private ToggleSwitch chkFenceLocked;
+        private ToggleSwitch chkFenceCanMinify;
         private NumericUpDown nudFenceWidth;
         private NumericUpDown nudFenceHeight;
         private NumericUpDown nudFenceTitleHeight;
@@ -114,852 +91,574 @@ namespace Fenceless.UI
         private NumericUpDown nudFenceBorderTransparency;
         private NumericUpDown nudFenceBorderWidth;
         private NumericUpDown nudFenceCornerRadius;
-        private CheckBox chkFenceShowShadow;
+        private ToggleSwitch chkFenceShowShadow;
         private ComboBox cmbFenceIconSize;
         private NumericUpDown nudFenceItemSpacing;
-
-        // Buttons
-        private Button btnOK;
-        private Button btnCancel;
-        private Button btnApply;
-        private Button btnRefreshFences;
-        private Button btnHighlightFence;
-        private Button btnAddFence;
         private Button btnResetToDefaults;
         private Button btnSetAsDefaults;
-
         #endregion
 
-        private void CreateControls()
+        public SettingsForm()
         {
-            // Create main tab control
-            mainTabControl = new TabControl
-            {
-                Dock = DockStyle.Fill,
-                Margin = new Padding(10),
-                BackColor = Color.FromArgb(60, 63, 65),
-                ForeColor = Color.FromArgb(220, 220, 220)
-            };
+            logger = Logger.Instance;
+            logger.Debug("Creating settings form", "SettingsForm");
 
-            // Create tabs
-            globalTab = new TabPage("Global Settings")
-            {
-                BackColor = Color.FromArgb(60, 63, 65),
-                ForeColor = Color.FromArgb(220, 220, 220)
-            };
+            InitializeComponent();
+            LoadSettings();
+            LoadFences();
 
-            defaultsTab = new TabPage("Default Settings")
-            {
-                BackColor = Color.FromArgb(60, 63, 65),
-                ForeColor = Color.FromArgb(220, 220, 220)
-            };
-
-            fencesTab = new TabPage("Fence Management")
-            {
-                BackColor = Color.FromArgb(60, 63, 65),
-                ForeColor = Color.FromArgb(220, 220, 220)
-            };
-
-            mainTabControl.TabPages.AddRange(new[] { globalTab, defaultsTab, fencesTab });
-
-            CreateGlobalSettingsTab();
-            CreateDefaultSettingsTab();
-            CreateFenceManagementTab();
-            CreateButtonPanel();
-
-            this.Controls.Add(mainTabControl);
+            this.Shown += (s, e) => AnimationHelper.FadeIn(this, 200);
         }
 
-        private void CreateGlobalSettingsTab()
+        private void InitializeComponent()
         {
-            var scrollPanel = new Panel
-            {
-                Dock = DockStyle.Fill,
-                AutoScroll = true,
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
+            this.SuspendLayout();
 
-            // Application Settings Group
-            var grpApp = new GroupBox
-            {
-                Text = "Application Settings",
-                Location = new Point(10, 10),
-                Size = new Size(450, 150),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
+            SetupThemedForm("Fenceless Settings", showMinimize: true, showMaximize: true, sizable: true);
+            this.Size = new Size(1200, 700);
+            this.MinimumSize = new Size(900, 600);
 
-            chkAutoSave = new CheckBox
-            {
-                Text = "Auto Save",
-                Location = new Point(10, 25),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
+            CreateLayout();
+            SetupEventHandlers();
 
-            var lblAutoSaveInterval = new Label
-            {
-                Text = "Auto Save Interval (seconds):",
-                Location = new Point(10, 55),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            nudAutoSaveInterval = new NumericUpDown
-            {
-                Location = new Point(200, 52),
-                Width = 100,
-                Minimum = 5,
-                Maximum = 300,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(50, 53, 55),
-                BorderStyle = BorderStyle.FixedSingle
-            };
-
-            chkShowTooltips = new CheckBox
-            {
-                Text = "Show Tooltips",
-                Location = new Point(10, 85),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            chkEnableAnimations = new CheckBox
-            {
-                Text = "Enable Animations",
-                Location = new Point(10, 115),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            chkStartWithWindows = new CheckBox
-            {
-                Text = "Start with Windows",
-                Location = new Point(200, 25),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            grpApp.Controls.AddRange(new Control[] {
-                chkAutoSave, lblAutoSaveInterval, nudAutoSaveInterval,
-                chkShowTooltips, chkEnableAnimations, chkStartWithWindows
-            });
-
-            // Logging Settings Group
-            var grpLogging = new GroupBox
-            {
-                Text = "Logging Settings",
-                Location = new Point(10, 170),
-                Size = new Size(450, 100),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
-
-            var lblLogLevel = new Label
-            {
-                Text = "Log Level:",
-                Location = new Point(10, 25),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            cmbLogLevel = new ComboBox
-            {
-                Location = new Point(100, 22),
-                Width = 120,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(50, 53, 55),
-                FlatStyle = FlatStyle.Flat
-            };
-            cmbLogLevel.Items.AddRange(new[] { "Debug", "Info", "Warning", "Error", "Critical" });
-
-            chkEnableFileLogging = new CheckBox
-            {
-                Text = "Enable File Logging",
-                Location = new Point(10, 55),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            grpLogging.Controls.AddRange(new Control[] {
-                lblLogLevel, cmbLogLevel, chkEnableFileLogging
-            });
-
-            // Global Hotkeys Group
-            var grpHotkeys = new GroupBox
-            {
-                Text = "Global Hotkeys",
-                Location = new Point(480, 10),
-                Size = new Size(400, 260),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
-
-            CreateHotkeyControls(grpHotkeys);
-
-            scrollPanel.Controls.AddRange(new Control[] { grpApp, grpLogging, grpHotkeys });
-            globalTab.Controls.Add(scrollPanel);
+            this.ResumeLayout(false);
         }
 
-        private void CreateHotkeyControls(GroupBox parent)
+        private void CreateLayout()
         {
-            var hotkeys = new[]
+            sidebar = new SidebarNavigation();
+            sidebar.AddItem("General", "\uE80F");
+            sidebar.AddItem("Fences", "\uE8FD");
+            sidebar.AddItem("Appearance", "\uE790");
+            sidebar.AddItem("Hotkeys", "\uE8C1");
+            sidebar.PageChanged += (s, index) =>
             {
-                ("Toggle Transparency:", "txtToggleTransparencyShortcut"),
-                ("Toggle Auto-Hide:", "txtToggleAutoHideShortcut"),
-                ("Show All Fences:", "txtShowAllFencesShortcut"),
-                ("Create New Fence:", "txtCreateNewFenceShortcut"),
-                ("Open Settings:", "txtOpenSettingsShortcut"),
-                ("Toggle Lock:", "txtToggleLockShortcut"),
-                ("Minimize All Fences:", "txtMinimizeAllFencesShortcut"),
-                ("Refresh Fences:", "txtRefreshFencesShortcut")
+                var keys = new[] { PageGeneral, PageFences, PageAppearance, PageHotkeys };
+                if (index < keys.Length)
+                    pagePanel.SwitchTo(keys[index]);
             };
 
-            int yPos = 25;
-            foreach (var (label, controlName) in hotkeys)
-            {
-                var lbl = new Label
-                {
-                    Text = label,
-                    Location = new Point(10, yPos + 3),
-                    Size = new Size(150, 20),
-                    ForeColor = Color.FromArgb(220, 220, 220),
-                    BackColor = Color.Transparent
-                };
-
-                var txt = new TextBox
-                {
-                    Location = new Point(170, yPos),
-                    Width = 150,
-                    ReadOnly = true,
-                    ForeColor = Color.FromArgb(220, 220, 220),
-                    BackColor = Color.FromArgb(50, 53, 55),
-                    BorderStyle = BorderStyle.FixedSingle,
-                    Text = ""
-                };
-
-                var btnClear = new Button
-                {
-                    Text = "Clear",
-                    Location = new Point(330, yPos),
-                    Size = new Size(50, 23),
-                    FlatStyle = FlatStyle.Flat,
-                    BackColor = Color.FromArgb(70, 73, 75),
-                    ForeColor = Color.FromArgb(220, 220, 220)
-                };
-                btnClear.FlatAppearance.BorderSize = 1;
-                btnClear.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
-
-                btnClear.Click += (s, e) => txt.Text = "";
-
-                // Assign to the appropriate field
-                switch (controlName)
-                {
-                    case "txtToggleTransparencyShortcut": txtToggleTransparencyShortcut = txt; break;
-                    case "txtToggleAutoHideShortcut": txtToggleAutoHideShortcut = txt; break;
-                    case "txtShowAllFencesShortcut": txtShowAllFencesShortcut = txt; break;
-                    case "txtCreateNewFenceShortcut": txtCreateNewFenceShortcut = txt; break;
-                    case "txtOpenSettingsShortcut": txtOpenSettingsShortcut = txt; break;
-                    case "txtToggleLockShortcut": txtToggleLockShortcut = txt; break;
-                    case "txtMinimizeAllFencesShortcut": txtMinimizeAllFencesShortcut = txt; break;
-                    case "txtRefreshFencesShortcut": txtRefreshFencesShortcut = txt; break;
-                }
-
-                parent.Controls.AddRange(new Control[] { lbl, txt, btnClear });
-                yPos += 30;
-            }
-        }
-
-        private void CreateDefaultSettingsTab()
-        {
-            var scrollPanel = new Panel
+            pagePanel = new AnimatedPagePanel
             {
                 Dock = DockStyle.Fill,
-                AutoScroll = true,
-                BackColor = Color.FromArgb(60, 63, 65)
+                BackColor = Theme.Colors.BackgroundMid
             };
 
-            // Size Settings Group
-            var grpSize = new GroupBox
+            pagePanel.AddPage(PageGeneral, CreateGeneralPage());
+            pagePanel.AddPage(PageFences, CreateFencesPage());
+            pagePanel.AddPage(PageAppearance, CreateAppearancePage());
+            pagePanel.AddPage(PageHotkeys, CreateHotkeysPage());
+
+            footerPanel = new Panel
             {
-                Text = "Default Size Settings",
-                Location = new Point(10, 10),
-                Size = new Size(400, 150),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
-
-            CreateLabeledNumericUpDown(grpSize, "Width:", out nudDefaultFenceWidth, 200, 2000, 10, 25);
-            CreateLabeledNumericUpDown(grpSize, "Height:", out nudDefaultFenceHeight, 200, 2000, 10, 55);
-            CreateLabeledNumericUpDown(grpSize, "Title Height:", out nudDefaultTitleHeight, 16, 100, 10, 85);
-
-            // Appearance Settings Group
-            var grpAppearance = new GroupBox
-            {
-                Text = "Default Appearance Settings",
-                Location = new Point(10, 170),
-                Size = new Size(400, 150),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
-
-            CreateLabeledNumericUpDown(grpAppearance, "Transparency (%):", out nudDefaultTransparency, 25, 100, 10, 25);
-
-            chkDefaultAutoHide = new CheckBox
-            {
-                Text = "Auto Hide",
-                Location = new Point(10, 55),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            CreateLabeledNumericUpDown(grpAppearance, "Auto Hide Delay (ms):", out nudDefaultAutoHideDelay, 500, 10000, 10, 85);
-
-            grpAppearance.Controls.Add(chkDefaultAutoHide);
-
-            // Color Settings Group
-            var grpColors = new GroupBox
-            {
-                Text = "Default Color Settings",
-                Location = new Point(420, 10),
-                Size = new Size(450, 310),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
-
-            CreateColorSetting(grpColors, "Background Color:", out btnDefaultBackgroundColor, out nudDefaultBackgroundTransparency, 10, 25);
-            CreateColorSetting(grpColors, "Title Background Color:", out btnDefaultTitleBackgroundColor, out nudDefaultTitleBackgroundTransparency, 10, 85);
-            CreateColorSetting(grpColors, "Text Color:", out btnDefaultTextColor, out nudDefaultTextTransparency, 10, 145);
-            CreateColorSetting(grpColors, "Border Color:", out btnDefaultBorderColor, out nudDefaultBorderTransparency, 10, 205);
-
-            // Style Settings Group
-            var grpStyle = new GroupBox
-            {
-                Text = "Default Style Settings",
-                Location = new Point(10, 330),
-                Size = new Size(400, 200),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
-
-            CreateLabeledNumericUpDown(grpStyle, "Border Width:", out nudDefaultBorderWidth, 0, 10, 10, 25);
-            CreateLabeledNumericUpDown(grpStyle, "Corner Radius:", out nudDefaultCornerRadius, 0, 20, 10, 55);
-
-            chkDefaultShowShadow = new CheckBox
-            {
-                Text = "Show Shadow",
-                Location = new Point(10, 85),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            var lblIconSize = new Label
-            {
-                Text = "Icon Size:",
-                Location = new Point(10, 118),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            cmbDefaultIconSize = new ComboBox
-            {
-                Location = new Point(120, 115),
-                Width = 100,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(50, 53, 55),
-                FlatStyle = FlatStyle.Flat
-            };
-            cmbDefaultIconSize.Items.AddRange(new[] { "16", "24", "32", "48", "64" });
-
-            CreateLabeledNumericUpDown(grpStyle, "Item Spacing:", out nudDefaultItemSpacing, 5, 50, 10, 145);
-
-            grpStyle.Controls.AddRange(new Control[] { chkDefaultShowShadow, lblIconSize, cmbDefaultIconSize });
-
-            scrollPanel.Controls.AddRange(new Control[] { grpSize, grpAppearance, grpColors, grpStyle });
-            defaultsTab.Controls.Add(scrollPanel);
-        }
-
-        private void CreateFenceManagementTab()
-        {
-            // Main container with proper layout
-            var mainContainer = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 1,
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
-            
-            // Set column styles - left column wider width, right column fills remaining space
-            mainContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 250));
-            mainContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            mainContainer.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-            // Left panel container for fence list and buttons
-            var leftContainer = new Panel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Color.FromArgb(60, 63, 65),
-                Padding = new Padding(5)
-            };
-
-            // Fence list group box
-            var fenceListGroup = new GroupBox
-            {
-                Text = "Active Fences",
-                Dock = DockStyle.Fill,
-                Padding = new Padding(5),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
-
-            // Container for buttons and list with proper layout - buttons first (higher)
-            var listContainer = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                RowCount = 2,
-                ColumnCount = 1,
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
-            
-            // Set row styles - buttons at top with fixed height, list takes remaining space
-            listContainer.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
-            listContainer.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            listContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-
-            // Button panel with proper layout - moved to top
-            var buttonPanel = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                RowCount = 1,
-                ColumnCount = 3,
-                BackColor = Color.FromArgb(60, 63, 65),
-                Margin = new Padding(0, 0, 0, 5)
-            };
-            
-            // Equal width columns for buttons
-            buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
-            buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
-            buttonPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34f));
-            buttonPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-            // Create buttons with proper sizing
-            btnRefreshFences = new Button
-            {
-                Text = "Refresh",
-                Dock = DockStyle.Fill,
-                Margin = new Padding(1),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(70, 73, 75),
-                ForeColor = Color.FromArgb(220, 220, 220)
-            };
-            btnRefreshFences.FlatAppearance.BorderSize = 1;
-            btnRefreshFences.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
-
-            btnHighlightFence = new Button
-            {
-                Text = "Highlight",
-                Dock = DockStyle.Fill,
-                Margin = new Padding(1),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(70, 73, 75),
-                ForeColor = Color.FromArgb(220, 220, 220)
-            };
-            btnHighlightFence.FlatAppearance.BorderSize = 1;
-            btnHighlightFence.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
-
-            btnAddFence = new Button
-            {
-                Text = "Add",
-                Dock = DockStyle.Fill,
-                Margin = new Padding(1),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(70, 73, 75),
-                ForeColor = Color.FromArgb(220, 220, 220)
-            };
-            btnAddFence.FlatAppearance.BorderSize = 1;
-            btnAddFence.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
-
-            // Add buttons to button panel
-            buttonPanel.Controls.Add(btnRefreshFences, 0, 0);
-            buttonPanel.Controls.Add(btnHighlightFence, 1, 0);
-            buttonPanel.Controls.Add(btnAddFence, 2, 0);
-
-            // Fence list - moved below buttons
-            lstFences = new ListBox
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Color.FromArgb(60, 63, 65),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BorderStyle = BorderStyle.None,
-                DrawMode = DrawMode.OwnerDrawFixed,
-                Margin = new Padding(0)
-            };
-            lstFences.DisplayMember = "Name";
-
-            // Add buttons and list to list container - buttons first (row 0), then list (row 1)
-            listContainer.Controls.Add(buttonPanel, 0, 0);
-            listContainer.Controls.Add(lstFences, 0, 1);
-
-            // Add list container to group box
-            fenceListGroup.Controls.Add(listContainer);
-            leftContainer.Controls.Add(fenceListGroup);
-
-            // Right panel - Fence settings
-            grpFenceSettings = new GroupBox
-            {
-                Text = "Fence Settings",
-                Dock = DockStyle.Fill,
-                Enabled = false,
-                Margin = new Padding(5, 0, 0, 0),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
-
-            CreateFenceSettingsControls();
-
-            // Add panels to main container
-            mainContainer.Controls.Add(leftContainer, 0, 0);
-            mainContainer.Controls.Add(grpFenceSettings, 1, 0);
-            
-            // Add main container to tab
-            fencesTab.Controls.Add(mainContainer);
-        }
-
-        private void CreateFenceSettingsControls()
-        {
-            var scrollPanel = new Panel
-            {
-                Dock = DockStyle.Fill,
-                AutoScroll = true,
-                BackColor = Color.FromArgb(60, 63, 65),
-                Padding = new Padding(10)
-            };
-
-            // Basic Settings Group
-            var grpBasic = new GroupBox
-            {
-                Text = "Basic Settings",
-                Location = new Point(0, 0),
-                Size = new Size(400, 220),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
-
-            var lblName = new Label
-            {
-                Text = "Name:",
-                Location = new Point(10, 25),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            txtFenceName = new TextBox
-            {
-                Location = new Point(120, 22),
-                Width = 200,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(50, 53, 55),
-                BorderStyle = BorderStyle.FixedSingle
-            };
-
-            CreateLabeledNumericUpDown(grpBasic, "Transparency (%):", out nudFenceTransparency, 25, 100, 10, 55);
-
-            chkFenceAutoHide = new CheckBox
-            {
-                Text = "Auto Hide",
-                Location = new Point(10, 85),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            CreateLabeledNumericUpDown(grpBasic, "Auto Hide Delay (ms):", out nudFenceAutoHideDelay, 500, 10000, 10, 115);
-
-            chkFenceLocked = new CheckBox
-            {
-                Text = "Locked",
-                Location = new Point(10, 145),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            chkFenceCanMinify = new CheckBox
-            {
-                Text = "Can Minify",
-                Location = new Point(150, 145),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            grpBasic.Controls.AddRange(new Control[] {
-                lblName, txtFenceName, chkFenceAutoHide, chkFenceLocked, chkFenceCanMinify
-            });
-
-            // Size Settings Group
-            var grpFenceSize = new GroupBox
-            {
-                Text = "Size Settings",
-                Location = new Point(0, 230),
-                Size = new Size(400, 120),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
-
-            CreateLabeledNumericUpDown(grpFenceSize, "Width:", out nudFenceWidth, 200, 2000, 10, 25);
-            CreateLabeledNumericUpDown(grpFenceSize, "Height:", out nudFenceHeight, 200, 2000, 10, 55);
-            CreateLabeledNumericUpDown(grpFenceSize, "Title Height:", out nudFenceTitleHeight, 16, 100, 10, 85);
-
-            // Color Settings Group
-            var grpFenceColors = new GroupBox
-            {
-                Text = "Color Settings",
-                Location = new Point(410, 0),
-                Size = new Size(450, 350),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
-
-            CreateColorSetting(grpFenceColors, "Background Color:", out btnFenceBackgroundColor, out nudFenceBackgroundTransparency, 10, 25);
-            CreateColorSetting(grpFenceColors, "Title Background Color:", out btnFenceTitleBackgroundColor, out nudFenceTitleBackgroundTransparency, 10, 85);
-            CreateColorSetting(grpFenceColors, "Text Color:", out btnFenceTextColor, out nudFenceTextTransparency, 10, 145);
-            CreateColorSetting(grpFenceColors, "Border Color:", out btnFenceBorderColor, out nudFenceBorderTransparency, 10, 205);
-
-            // Style Settings Group
-            var grpFenceStyle = new GroupBox
-            {
-                Text = "Style Settings",
-                Location = new Point(410, 360),
-                Size = new Size(450, 200),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(60, 63, 65)
-            };
-
-            CreateLabeledNumericUpDown(grpFenceStyle, "Border Width:", out nudFenceBorderWidth, 0, 10, 10, 25);
-            CreateLabeledNumericUpDown(grpFenceStyle, "Corner Radius:", out nudFenceCornerRadius, 0, 20, 10, 55);
-
-            chkFenceShowShadow = new CheckBox
-            {
-                Text = "Show Shadow",
-                Location = new Point(10, 85),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            var lblFenceIconSize = new Label
-            {
-                Text = "Icon Size:",
-                Location = new Point(10, 118),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            cmbFenceIconSize = new ComboBox
-            {
-                Location = new Point(120, 115),
-                Width = 100,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(50, 53, 55),
-                FlatStyle = FlatStyle.Flat
-            };
-            cmbFenceIconSize.Items.AddRange(new[] { "16", "24", "32", "48", "64" });
-
-            CreateLabeledNumericUpDown(grpFenceStyle, "Item Spacing:", out nudFenceItemSpacing, 5, 50, 10, 145);
-
-            grpFenceStyle.Controls.AddRange(new Control[] { chkFenceShowShadow, lblFenceIconSize, cmbFenceIconSize });
-
-            // Action buttons
-            btnResetToDefaults = new Button
-            {
-                Text = "Reset to Defaults",
-                Location = new Point(10, 570),
-                Size = new Size(150, 30),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(70, 73, 75),
-                ForeColor = Color.FromArgb(220, 220, 220)
-            };
-            btnResetToDefaults.FlatAppearance.BorderSize = 1;
-            btnResetToDefaults.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
-
-            btnSetAsDefaults = new Button
-            {
-                Text = "Set as Defaults",
-                Location = new Point(170, 570),
-                Size = new Size(150, 30),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(70, 73, 75),
-                ForeColor = Color.FromArgb(220, 220, 220)
-            };
-            btnSetAsDefaults.FlatAppearance.BorderSize = 1;
-            btnSetAsDefaults.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
-
-            scrollPanel.Controls.AddRange(new Control[] {
-                grpBasic, grpFenceSize, grpFenceColors, grpFenceStyle,
-                btnResetToDefaults, btnSetAsDefaults
-            });
-
-            grpFenceSettings.Controls.Add(scrollPanel);
-        }
-
-        private void CreateButtonPanel()
-        {
-            var buttonPanel = new Panel
-            {
-                Height = 50,
+                Height = 48,
                 Dock = DockStyle.Bottom,
-                BackColor = Color.FromArgb(60, 63, 65)
+                BackColor = Theme.Colors.BackgroundDark,
+                Padding = new Padding(0, 0, 12, 0)
             };
 
-            btnApply = new Button
+            var btnOK = Theme.CreateFlatButton("OK", Theme.ButtonRole.Accent);
+            btnOK.Size = new Size(Theme.Sizes.ButtonWidth, Theme.Sizes.ButtonHeight);
+            btnOK.DialogResult = DialogResult.OK;
+            btnOK.Click += BtnOK_Click;
+
+            var btnCancel = Theme.CreateFlatButton("Cancel");
+            btnCancel.Size = new Size(Theme.Sizes.ButtonWidth, Theme.Sizes.ButtonHeight);
+            btnCancel.DialogResult = DialogResult.Cancel;
+
+            var buttonFlow = new FlowLayoutPanel
             {
-                Text = "Apply",
-                Size = new Size(80, 30),
-                Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(70, 73, 75),
-                ForeColor = Color.FromArgb(220, 220, 220)
+                FlowDirection = FlowDirection.RightToLeft,
+                Dock = DockStyle.Fill,
+                BackColor = Color.Transparent,
+                Padding = new Padding(0, 8, 0, 0),
+                WrapContents = false
             };
-            btnApply.Location = new Point(buttonPanel.Width - 260, 10);
-            btnApply.FlatAppearance.BorderSize = 1;
-            btnApply.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
+            buttonFlow.Controls.Add(btnCancel);
+            buttonFlow.Controls.Add(btnOK);
+            footerPanel.Controls.Add(buttonFlow);
 
-            btnOK = new Button
-            {
-                Text = "OK",
-                Size = new Size(80, 30),
-                Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
-                DialogResult = DialogResult.OK,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(70, 73, 75),
-                ForeColor = Color.FromArgb(220, 220, 220)
-            };
-            btnOK.Location = new Point(buttonPanel.Width - 170, 10);
-            btnOK.FlatAppearance.BorderSize = 1;
-            btnOK.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
+            this.Controls.Add(pagePanel);
+            this.Controls.Add(footerPanel);
+            this.Controls.Add(sidebar);
 
-            btnCancel = new Button
-            {
-                Text = "Cancel",
-                Size = new Size(80, 30),
-                Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
-                DialogResult = DialogResult.Cancel,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(70, 73, 75),
-                ForeColor = Color.FromArgb(220, 220, 220)
-            };
-            btnCancel.Location = new Point(buttonPanel.Width - 80, 10);
-            btnCancel.FlatAppearance.BorderSize = 1;
-            btnCancel.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
-
-            buttonPanel.Controls.AddRange(new Control[] { btnApply, btnOK, btnCancel });
-            this.Controls.Add(buttonPanel);
+            BringChromeToFront();
 
             this.AcceptButton = btnOK;
             this.CancelButton = btnCancel;
         }
 
-        private void CreateLabeledNumericUpDown(Control parent, string labelText, out NumericUpDown numericUpDown,
-            decimal min, decimal max, int x, int y)
+        #region Page Creation
+
+        private FlowLayoutPanel CreateScrollPage()
         {
-            var label = new Label
+            var page = new FlowLayoutPanel
             {
-                Text = labelText,
-                Location = new Point(x, y + 3),
-                Size = new Size(110, 20),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
+                BackColor = Theme.Colors.BackgroundMid,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoScroll = true,
+                Padding = new Padding(16, 8, 16, 16),
+                Margin = Padding.Empty
             };
 
-            numericUpDown = new NumericUpDown
+            page.Resize += (s, e) =>
             {
-                Location = new Point(x + 120, y),
-                Width = 100,
-                Minimum = min,
-                Maximum = max,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(50, 53, 55),
-                BorderStyle = BorderStyle.FixedSingle
+                foreach (Control c in page.Controls)
+                    if (c is Panel section)
+                        section.Width = page.ClientSize.Width - page.Padding.Horizontal;
             };
 
-            parent.Controls.AddRange(new Control[] { label, numericUpDown });
+            return page;
         }
 
-        private void CreateColorSetting(Control parent, string labelText, out Button colorButton,
-            out NumericUpDown transparencyUpDown, int x, int y)
+        private void AddSection(FlowLayoutPanel page, Panel section, int rowCount)
         {
-            var label = new Label
-            {
-                Text = labelText,
-                Location = new Point(x, y + 3),
-                Size = new Size(130, 20),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            colorButton = new Button
-            {
-                Text = "Choose Color",
-                Location = new Point(x + 140, y),
-                Size = new Size(120, 23),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(70, 73, 75),
-                ForeColor = Color.FromArgb(220, 220, 220)
-            };
-            colorButton.FlatAppearance.BorderSize = 1;
-            colorButton.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
-
-            var transparencyLabel = new Label
-            {
-                Text = "Transparency (%):",
-                Location = new Point(x + 270, y + 3),
-                Size = new Size(100, 20),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
-
-            transparencyUpDown = new NumericUpDown
-            {
-                Location = new Point(x + 380, y),
-                Width = 60,
-                Minimum = 0,
-                Maximum = 100,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(50, 53, 55),
-                BorderStyle = BorderStyle.FixedSingle
-            };
-
-            parent.Controls.AddRange(new Control[] { label, colorButton, transparencyLabel, transparencyUpDown });
+            section.Height = 28 + rowCount * 36 + 12;
+            if (page.ClientSize.Width > 0)
+                section.Width = page.ClientSize.Width - page.Padding.Horizontal;
+            page.Controls.Add(section);
         }
+
+        private void AddColorSection(FlowLayoutPanel page, Panel section, int rowCount)
+        {
+            section.Height = 28 + (rowCount - 1) * 50 + 38;
+            if (page.ClientSize.Width > 0)
+                section.Width = page.ClientSize.Width - page.Padding.Horizontal;
+            page.Controls.Add(section);
+        }
+
+        private ScrollableControl CreateGeneralPage()
+        {
+            var page = CreateScrollPage();
+
+            var autoSaveSection = Theme.CreateSection("Auto Save", 700);
+
+            chkAutoSave = new ToggleSwitch { Checked = true };
+            var autoSaveRow = CreateSettingsRow("Auto Save", chkAutoSave);
+
+            nudAutoSaveInterval = Theme.CreateNumericUpDown(5, 300, 30);
+            nudAutoSaveInterval.Width = 100;
+            var intervalRow = CreateSettingsRow("Interval (seconds)", nudAutoSaveInterval);
+
+            autoSaveSection.Controls.Add(intervalRow);
+            autoSaveSection.Controls.Add(autoSaveRow);
+
+            var behaviorSection = Theme.CreateSection("Behavior", 700);
+
+            chkShowTooltips = new ToggleSwitch { Checked = true };
+            chkEnableAnimations = new ToggleSwitch { Checked = true };
+            chkStartWithWindows = new ToggleSwitch { Checked = false };
+
+            var tooltipsRow = CreateSettingsRow("Show Tooltips", chkShowTooltips);
+            var animRow = CreateSettingsRow("Enable Animations", chkEnableAnimations);
+            var startupRow = CreateSettingsRow("Start with Windows", chkStartWithWindows);
+
+            behaviorSection.Controls.Add(startupRow);
+            behaviorSection.Controls.Add(animRow);
+            behaviorSection.Controls.Add(tooltipsRow);
+
+            var loggingSection = Theme.CreateSection("Logging", 700);
+
+            cmbLogLevel = Theme.CreateComboBox(new[] { "Debug", "Info", "Warning", "Error", "Critical" });
+            cmbLogLevel.Width = 120;
+            var logLevelRow = CreateSettingsRow("Log Level", cmbLogLevel);
+
+            chkEnableFileLogging = new ToggleSwitch { Checked = true };
+            var fileLogRow = CreateSettingsRow("File Logging", chkEnableFileLogging);
+
+            loggingSection.Controls.Add(fileLogRow);
+            loggingSection.Controls.Add(logLevelRow);
+
+            AddSection(page, loggingSection, 2);
+            AddSection(page, behaviorSection, 3);
+            AddSection(page, autoSaveSection, 2);
+
+            return page;
+        }
+
+        private ScrollableControl CreateAppearancePage()
+        {
+            var page = CreateScrollPage();
+
+            var sizeSection = Theme.CreateSection("Default Size", 700);
+
+            nudDefaultFenceWidth = Theme.CreateNumericUpDown(200, 2000, 524);
+            nudDefaultFenceWidth.Width = 100;
+            nudDefaultFenceHeight = Theme.CreateNumericUpDown(200, 2000, 517);
+            nudDefaultFenceHeight.Width = 100;
+            nudDefaultTitleHeight = Theme.CreateNumericUpDown(16, 100, 25);
+            nudDefaultTitleHeight.Width = 100;
+
+            sizeSection.Controls.Add(CreateSettingsRow("Title Height", nudDefaultTitleHeight));
+            sizeSection.Controls.Add(CreateSettingsRow("Height", nudDefaultFenceHeight));
+            sizeSection.Controls.Add(CreateSettingsRow("Width", nudDefaultFenceWidth));
+
+            var appearanceSection = Theme.CreateSection("Default Appearance", 700);
+
+            nudDefaultTransparency = Theme.CreateNumericUpDown(25, 100, 80);
+            nudDefaultTransparency.Width = 100;
+            chkDefaultAutoHide = new ToggleSwitch();
+            nudDefaultAutoHideDelay = Theme.CreateNumericUpDown(500, 10000, 2000);
+            nudDefaultAutoHideDelay.Width = 100;
+
+            appearanceSection.Controls.Add(CreateSettingsRow("Auto Hide Delay (ms)", nudDefaultAutoHideDelay));
+            appearanceSection.Controls.Add(CreateSettingsRow("Auto Hide", chkDefaultAutoHide));
+            appearanceSection.Controls.Add(CreateSettingsRow("Transparency (%)", nudDefaultTransparency));
+
+            var colorsSection = Theme.CreateSection("Default Colors", 700);
+
+            (btnDefaultBackgroundColor, nudDefaultBackgroundTransparency) = CreateColorSettingsRow(colorsSection, "Background", 0);
+            (btnDefaultTitleBackgroundColor, nudDefaultTitleBackgroundTransparency) = CreateColorSettingsRow(colorsSection, "Title Background", 50);
+            (btnDefaultTextColor, nudDefaultTextTransparency) = CreateColorSettingsRow(colorsSection, "Text", 100);
+            (btnDefaultBorderColor, nudDefaultBorderTransparency) = CreateColorSettingsRow(colorsSection, "Border", 150);
+
+            var styleSection = Theme.CreateSection("Default Style", 700);
+
+            nudDefaultBorderWidth = Theme.CreateNumericUpDown(0, 10, 0);
+            nudDefaultBorderWidth.Width = 100;
+            nudDefaultCornerRadius = Theme.CreateNumericUpDown(0, 50, 0);
+            nudDefaultCornerRadius.Width = 100;
+            chkDefaultShowShadow = new ToggleSwitch { Checked = true };
+            cmbDefaultIconSize = Theme.CreateComboBox(new[] { "16", "24", "32", "48", "64" });
+            cmbDefaultIconSize.Width = 100;
+            nudDefaultItemSpacing = Theme.CreateNumericUpDown(5, 50, 15);
+            nudDefaultItemSpacing.Width = 100;
+
+            styleSection.Controls.Add(CreateSettingsRow("Item Spacing", nudDefaultItemSpacing));
+            styleSection.Controls.Add(CreateSettingsRow("Icon Size", cmbDefaultIconSize));
+            styleSection.Controls.Add(CreateSettingsRow("Show Shadow", chkDefaultShowShadow));
+            styleSection.Controls.Add(CreateSettingsRow("Corner Radius", nudDefaultCornerRadius));
+            styleSection.Controls.Add(CreateSettingsRow("Border Width", nudDefaultBorderWidth));
+
+            AddSection(page, styleSection, 5);
+            AddColorSection(page, colorsSection, 4);
+            AddSection(page, appearanceSection, 3);
+            AddSection(page, sizeSection, 3);
+
+            return page;
+        }
+
+        private ScrollableControl CreateHotkeysPage()
+        {
+            var page = CreateScrollPage();
+
+            var section = Theme.CreateSection("Global Hotkeys", 700);
+
+            var infoLabel = Theme.CreateLabel("Click a hotkey field and press the desired key combination. Press Escape to clear.", Theme.Fonts.Small, Theme.Colors.TextSecondary);
+            infoLabel.Location = new Point(12, 32);
+            infoLabel.MaximumSize = new Size(676, 0);
+            section.Controls.Add(infoLabel);
+
+            int y = 56;
+            int hotkeyWidth = 200;
+            int clearWidth = 60;
+
+            txtToggleTransparencyShortcut = CreateHotkeyRow(section, "Toggle Transparency", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
+            txtToggleAutoHideShortcut = CreateHotkeyRow(section, "Toggle Auto-Hide", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
+            txtShowAllFencesShortcut = CreateHotkeyRow(section, "Show All Fences", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
+            txtCreateNewFenceShortcut = CreateHotkeyRow(section, "Create New Fence", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
+            txtOpenSettingsShortcut = CreateHotkeyRow(section, "Open Settings", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
+            txtToggleLockShortcut = CreateHotkeyRow(section, "Toggle Lock", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
+            txtMinimizeAllFencesShortcut = CreateHotkeyRow(section, "Minimize All Fences", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
+            txtRefreshFencesShortcut = CreateHotkeyRow(section, "Refresh Fences", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
+
+            section.Height = y + 8;
+
+            if (page.ClientSize.Width > 0)
+                section.Width = page.ClientSize.Width - page.Padding.Horizontal;
+            page.Controls.Add(section);
+
+            return page;
+        }
+
+        private ScrollableControl CreateFencesPage()
+        {
+            var page = new Panel
+            {
+                BackColor = Theme.Colors.BackgroundMid,
+                Dock = DockStyle.Fill,
+                Padding = new Padding(Theme.Sizes.PanelPadding)
+            };
+
+            var mainContainer = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                BackColor = Theme.Colors.BackgroundMid
+            };
+            mainContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 250));
+            mainContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            mainContainer.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+            var leftPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Theme.Colors.BackgroundMid,
+                Padding = new Padding(0, 0, 8, 0)
+            };
+
+            var listSection = Theme.CreateSection("Active Fences", 230);
+            listSection.Dock = DockStyle.Fill;
+            listSection.Padding = new Padding(8, 28, 8, 8);
+
+            var buttonPanel = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.LeftToRight,
+                Height = Theme.Sizes.ButtonHeight + 4,
+                Dock = DockStyle.Top,
+                WrapContents = false,
+                Margin = new Padding(0, 0, 0, 4)
+            };
+
+            var btnRefresh = Theme.CreateFlatButton("Refresh");
+            btnRefresh.Width = 70;
+            btnRefresh.Click += (s, e) => LoadFences();
+
+            var btnHighlight = Theme.CreateFlatButton("Highlight");
+            btnHighlight.Width = 70;
+            btnHighlight.Click += BtnHighlight_Click;
+
+            var btnAdd = Theme.CreateFlatButton("Add");
+            btnAdd.Width = 60;
+            btnAdd.Click += BtnAdd_Click;
+
+            buttonPanel.Controls.AddRange(new Control[] { btnRefresh, btnHighlight, btnAdd });
+
+            lstFences = new ListBox
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Theme.Colors.InputBackground,
+                ForeColor = Theme.Colors.InputText,
+                BorderStyle = BorderStyle.None,
+                DrawMode = DrawMode.OwnerDrawFixed,
+                Font = Theme.Fonts.Body,
+                ItemHeight = 28
+            };
+            lstFences.DisplayMember = "Name";
+
+            listSection.Controls.Add(lstFences);
+            listSection.Controls.Add(buttonPanel);
+            leftPanel.Controls.Add(listSection);
+
+            fenceSettingsPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Theme.Colors.BackgroundMid,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoScroll = true,
+                Enabled = false,
+                Padding = new Padding(0),
+                Margin = Padding.Empty
+            };
+
+            fenceSettingsPanel.Resize += (s, e) =>
+            {
+                foreach (Control c in fenceSettingsPanel.Controls)
+                    if (c is Panel section)
+                        section.Width = fenceSettingsPanel.ClientSize.Width;
+            };
+
+            CreateFenceSettingsEditor();
+
+            mainContainer.Controls.Add(leftPanel, 0, 0);
+            mainContainer.Controls.Add(fenceSettingsPanel, 1, 0);
+            page.Controls.Add(mainContainer);
+
+            return page;
+        }
+
+        private void CreateFenceSettingsEditor()
+        {
+            var basicSection = Theme.CreateSection("Basic Settings", 500);
+
+            txtFenceName = Theme.CreateTextBox();
+            txtFenceName.Width = 200;
+            basicSection.Controls.Add(CreateSettingsRow("Name", txtFenceName));
+
+            nudFenceTransparency = Theme.CreateNumericUpDown(25, 100, 100);
+            nudFenceTransparency.Width = 100;
+            basicSection.Controls.Add(CreateSettingsRow("Transparency (%)", nudFenceTransparency));
+
+            chkFenceAutoHide = new ToggleSwitch();
+            basicSection.Controls.Add(CreateSettingsRow("Auto Hide", chkFenceAutoHide));
+
+            nudFenceAutoHideDelay = Theme.CreateNumericUpDown(500, 10000, 2000);
+            nudFenceAutoHideDelay.Width = 100;
+            basicSection.Controls.Add(CreateSettingsRow("Auto Hide Delay (ms)", nudFenceAutoHideDelay));
+
+            chkFenceLocked = new ToggleSwitch();
+            chkFenceCanMinify = new ToggleSwitch { Checked = true };
+            basicSection.Controls.Add(CreateSettingsRow("Can Minify", chkFenceCanMinify));
+            basicSection.Controls.Add(CreateSettingsRow("Locked", chkFenceLocked));
+
+            var sizeSection = Theme.CreateSection("Size Settings", 500);
+
+            nudFenceWidth = Theme.CreateNumericUpDown(200, 2000, 524);
+            nudFenceWidth.Width = 100;
+            nudFenceHeight = Theme.CreateNumericUpDown(200, 2000, 517);
+            nudFenceHeight.Width = 100;
+            nudFenceTitleHeight = Theme.CreateNumericUpDown(16, 100, 25);
+            nudFenceTitleHeight.Width = 100;
+
+            sizeSection.Controls.Add(CreateSettingsRow("Title Height", nudFenceTitleHeight));
+            sizeSection.Controls.Add(CreateSettingsRow("Height", nudFenceHeight));
+            sizeSection.Controls.Add(CreateSettingsRow("Width", nudFenceWidth));
+
+            var colorsSection = Theme.CreateSection("Colors", 500);
+
+            (btnFenceBackgroundColor, nudFenceBackgroundTransparency) = CreateColorSettingsRow(colorsSection, "Background", 0);
+            (btnFenceTitleBackgroundColor, nudFenceTitleBackgroundTransparency) = CreateColorSettingsRow(colorsSection, "Title Background", 50);
+            (btnFenceTextColor, nudFenceTextTransparency) = CreateColorSettingsRow(colorsSection, "Text", 100);
+            (btnFenceBorderColor, nudFenceBorderTransparency) = CreateColorSettingsRow(colorsSection, "Border", 150);
+
+            var styleSection = Theme.CreateSection("Style", 500);
+
+            nudFenceBorderWidth = Theme.CreateNumericUpDown(0, 10, 0);
+            nudFenceBorderWidth.Width = 100;
+            nudFenceCornerRadius = Theme.CreateNumericUpDown(0, 50, 0);
+            nudFenceCornerRadius.Width = 100;
+            chkFenceShowShadow = new ToggleSwitch { Checked = true };
+            cmbFenceIconSize = Theme.CreateComboBox(new[] { "16", "24", "32", "48", "64" });
+            cmbFenceIconSize.Width = 100;
+            nudFenceItemSpacing = Theme.CreateNumericUpDown(5, 50, 15);
+            nudFenceItemSpacing.Width = 100;
+
+            styleSection.Controls.Add(CreateSettingsRow("Item Spacing", nudFenceItemSpacing));
+            styleSection.Controls.Add(CreateSettingsRow("Icon Size", cmbFenceIconSize));
+            styleSection.Controls.Add(CreateSettingsRow("Show Shadow", chkFenceShowShadow));
+            styleSection.Controls.Add(CreateSettingsRow("Corner Radius", nudFenceCornerRadius));
+            styleSection.Controls.Add(CreateSettingsRow("Border Width", nudFenceBorderWidth));
+
+            var actionPanel = new Panel
+            {
+                Height = 40,
+                BackColor = Color.Transparent,
+                Margin = new Padding(0, 0, 0, 8)
+            };
+
+            btnResetToDefaults = Theme.CreateFlatButton("Reset to Defaults", Theme.ButtonRole.Danger);
+            btnResetToDefaults.Size = new Size(140, Theme.Sizes.ButtonHeight);
+            btnResetToDefaults.Location = new Point(0, 4);
+            btnResetToDefaults.Click += BtnResetToDefaults_Click;
+
+            btnSetAsDefaults = Theme.CreateFlatButton("Set as Defaults");
+            btnSetAsDefaults.Size = new Size(140, Theme.Sizes.ButtonHeight);
+            btnSetAsDefaults.Location = new Point(150, 4);
+            btnSetAsDefaults.Click += BtnSetAsDefaults_Click;
+
+            actionPanel.Controls.AddRange(new Control[] { btnResetToDefaults, btnSetAsDefaults });
+
+            fenceSettingsPanel.Controls.Add(actionPanel);
+            AddSection(fenceSettingsPanel, basicSection, 6);
+            AddSection(fenceSettingsPanel, sizeSection, 3);
+            AddColorSection(fenceSettingsPanel, colorsSection, 4);
+            AddSection(fenceSettingsPanel, styleSection, 5);
+        }
+
+        #endregion
+
+        #region Helper Methods
+
+        private Panel CreateSettingsRow(string labelText, Control input)
+        {
+            var row = new Panel
+            {
+                Height = 32,
+                Dock = DockStyle.Top,
+                BackColor = Color.Transparent,
+                Margin = new Padding(0, 2, 0, 2)
+            };
+
+            var label = Theme.CreateLabel(labelText);
+            label.AutoSize = true;
+            label.Location = new Point(0, (32 - label.Height) / 2);
+            label.Width = 160;
+
+            if (input is ToggleSwitch toggleSwitch)
+            {
+                input.Dock = DockStyle.Right;
+                input.Margin = new Padding(0, 5, 0, 5);
+            }
+            else
+            {
+                input.Location = new Point(170, (32 - input.Height) / 2);
+            }
+
+            row.Controls.Add(input);
+            row.Controls.Add(label);
+            return row;
+        }
+
+        private HotkeyCaptureBox CreateHotkeyRow(Control parent, string labelText, int x, int y, int sectionWidth, int hotkeyWidth, int clearWidth)
+        {
+            var label = Theme.CreateLabel(labelText);
+            label.Location = new Point(x, y + 4);
+            label.Width = 160;
+
+            var hotkeyBox = new HotkeyCaptureBox
+            {
+                Location = new Point(x + 170, y),
+                Width = hotkeyWidth
+            };
+
+            var btnClear = Theme.CreateFlatButton("Clear");
+            btnClear.Size = new Size(clearWidth, Theme.Sizes.ButtonHeight);
+            btnClear.Location = new Point(x + 170 + hotkeyWidth + 8, y);
+            btnClear.Click += (s, e) => hotkeyBox.Text = "";
+
+            parent.Controls.Add(btnClear);
+            parent.Controls.Add(hotkeyBox);
+            parent.Controls.Add(label);
+
+            return hotkeyBox;
+        }
+
+        private (Button colorButton, NumericUpDown transparency) CreateColorSettingsRow(Control parent, string labelText, int yOffset)
+        {
+            int x = 12;
+            int y = yOffset + 28;
+
+            var label = Theme.CreateLabel(labelText);
+            label.Location = new Point(x, y + 4);
+            label.Width = 120;
+
+            var colorButton = Theme.CreateColorSwatchButton();
+            colorButton.Location = new Point(x + 130, y);
+            colorButton.Click += (s, e) => ShowColorDialog(colorButton, labelText, false);
+
+            var transLabel = Theme.CreateLabel("Opacity (%):", Theme.Fonts.Small, Theme.Colors.TextSecondary);
+            transLabel.Location = new Point(x + 260, y + 4);
+            transLabel.Width = 70;
+
+            var transparency = Theme.CreateNumericUpDown(0, 100, 100);
+            transparency.Width = 60;
+            transparency.Location = new Point(x + 340, y);
+
+            parent.Controls.Add(transparency);
+            parent.Controls.Add(transLabel);
+            parent.Controls.Add(colorButton);
+            parent.Controls.Add(label);
+
+            return (colorButton, transparency);
+        }
+
+        #endregion
+
+        #region Event Handlers
 
         private void SetupEventHandlers()
         {
-            // Global settings auto-apply handlers
             chkAutoSave.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
             nudAutoSaveInterval.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
             chkShowTooltips.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
             chkEnableAnimations.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
+            chkStartWithWindows.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
             cmbLogLevel.SelectedIndexChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
             chkEnableFileLogging.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
 
-            // Hotkey handlers
             txtToggleTransparencyShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
             txtToggleAutoHideShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
             txtShowAllFencesShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
@@ -969,7 +668,6 @@ namespace Fenceless.UI
             txtMinimizeAllFencesShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
             txtRefreshFencesShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
 
-            // Default settings auto-apply handlers
             nudDefaultFenceWidth.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
             nudDefaultFenceHeight.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
             nudDefaultTitleHeight.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
@@ -986,7 +684,6 @@ namespace Fenceless.UI
             cmbDefaultIconSize.SelectedIndexChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
             nudDefaultItemSpacing.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyGlobalSettings(); };
 
-            // Color button handlers
             btnDefaultBackgroundColor.Click += (s, e) => ShowColorDialog(btnDefaultBackgroundColor, "DefaultBackgroundColor");
             btnDefaultTitleBackgroundColor.Click += (s, e) => ShowColorDialog(btnDefaultTitleBackgroundColor, "DefaultTitleBackgroundColor");
             btnDefaultTextColor.Click += (s, e) => ShowColorDialog(btnDefaultTextColor, "DefaultTextColor");
@@ -997,16 +694,9 @@ namespace Fenceless.UI
             btnFenceTextColor.Click += (s, e) => ShowColorDialog(btnFenceTextColor, "TextColor", true);
             btnFenceBorderColor.Click += (s, e) => ShowColorDialog(btnFenceBorderColor, "BorderColor", true);
 
-            // Fence management handlers
             lstFences.DrawItem += LstFences_DrawItem;
             lstFences.SelectedIndexChanged += LstFences_SelectedIndexChanged;
-            btnRefreshFences.Click += (s, e) => LoadFences();
-            btnHighlightFence.Click += BtnHighlight_Click;
-            btnAddFence.Click += BtnAdd_Click;
-            btnResetToDefaults.Click += BtnResetToDefaults_Click;
-            btnSetAsDefaults.Click += BtnSetAsDefaults_Click;
 
-            // Fence settings auto-apply handlers
             txtFenceName.TextChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
             nudFenceTransparency.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
             chkFenceAutoHide.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
@@ -1025,11 +715,11 @@ namespace Fenceless.UI
             chkFenceShowShadow.CheckedChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
             cmbFenceIconSize.SelectedIndexChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
             nudFenceItemSpacing.ValueChanged += (s, e) => { if (!isUpdatingControls) ApplyFenceSettings(); };
-
-            // Main buttons
-            btnOK.Click += BtnOK_Click;
-            btnApply.Click += BtnApply_Click;
         }
+
+        #endregion
+
+        #region Load / Apply
 
         private void LoadSettings()
         {
@@ -1039,7 +729,6 @@ namespace Fenceless.UI
                 logger.Debug("Loading settings into form", "SettingsForm");
                 var settings = AppSettings.Instance;
 
-                // Global settings
                 chkAutoSave.Checked = settings.AutoSave;
                 nudAutoSaveInterval.Value = settings.AutoSaveInterval;
                 chkShowTooltips.Checked = settings.ShowTooltips;
@@ -1048,7 +737,6 @@ namespace Fenceless.UI
                 cmbLogLevel.SelectedItem = settings.LogLevel;
                 chkEnableFileLogging.Checked = settings.EnableFileLogging;
 
-                // Hotkeys
                 txtToggleTransparencyShortcut.Text = settings.ToggleTransparencyShortcut;
                 txtToggleAutoHideShortcut.Text = settings.ToggleAutoHideShortcut;
                 txtShowAllFencesShortcut.Text = settings.ShowAllFencesShortcut;
@@ -1058,7 +746,6 @@ namespace Fenceless.UI
                 txtMinimizeAllFencesShortcut.Text = settings.MinimizeAllFencesShortcut;
                 txtRefreshFencesShortcut.Text = settings.RefreshFencesShortcut;
 
-                // Default settings
                 nudDefaultFenceWidth.Value = settings.DefaultFenceWidth;
                 nudDefaultFenceHeight.Value = settings.DefaultFenceHeight;
                 nudDefaultTitleHeight.Value = settings.DefaultTitleHeight;
@@ -1201,8 +888,7 @@ namespace Fenceless.UI
         private void SetColorButton(Button button, int argbColor)
         {
             var color = Color.FromArgb(argbColor);
-            button.BackColor = color;
-            button.Text = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+            Theme.UpdateColorSwatch(button, color);
         }
 
         private void ApplyGlobalSettings()
@@ -1220,11 +906,10 @@ namespace Fenceless.UI
                 settings.EnableAnimations = chkEnableAnimations.Checked;
                 settings.LogLevel = cmbLogLevel.SelectedItem?.ToString() ?? "Info";
                 settings.EnableFileLogging = chkEnableFileLogging.Checked;
-                
-                // Handle startup with Windows setting
+
                 bool previousStartupSetting = settings.StartWithWindows;
                 settings.StartWithWindows = chkStartWithWindows.Checked;
-                
+
                 if (previousStartupSetting != settings.StartWithWindows)
                 {
                     if (settings.StartWithWindows)
@@ -1232,10 +917,12 @@ namespace Fenceless.UI
                         if (!StartupManager.EnableStartup())
                         {
                             logger.Error("Failed to enable startup", "SettingsForm");
-                            MessageBox.Show("Failed to enable startup with Windows. Please check the logs for details.", 
+                            CustomMessageBox.Show("Failed to enable startup with Windows. Please check the logs for details.",
                                 "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                             settings.StartWithWindows = false;
+                            isUpdatingControls = true;
                             chkStartWithWindows.Checked = false;
+                            isUpdatingControls = false;
                         }
                     }
                     else
@@ -1243,10 +930,12 @@ namespace Fenceless.UI
                         if (!StartupManager.DisableStartup())
                         {
                             logger.Error("Failed to disable startup", "SettingsForm");
-                            MessageBox.Show("Failed to disable startup with Windows. Please check the logs for details.", 
+                            CustomMessageBox.Show("Failed to disable startup with Windows. Please check the logs for details.",
                                 "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                             settings.StartWithWindows = true;
+                            isUpdatingControls = true;
                             chkStartWithWindows.Checked = true;
+                            isUpdatingControls = false;
                         }
                     }
                 }
@@ -1290,7 +979,7 @@ namespace Fenceless.UI
             catch (Exception ex)
             {
                 logger.Error("Failed to apply global settings", "SettingsForm", ex);
-                MessageBox.Show($"Failed to apply settings: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                CustomMessageBox.Show($"Failed to apply settings: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -1329,8 +1018,6 @@ namespace Fenceless.UI
                 FenceManager.Instance.UpdateFence(selectedFenceInfo);
                 FenceManager.Instance.ApplySettingsToFence(selectedFenceInfo);
 
-
-
                 logger.Info($"Applied settings to fence '{selectedFenceInfo.Name}'", "SettingsForm");
             }
             catch (Exception ex)
@@ -1338,6 +1025,8 @@ namespace Fenceless.UI
                 logger.Error($"Failed to apply fence settings for '{selectedFenceInfo?.Name}'", "SettingsForm", ex);
             }
         }
+
+        #endregion
 
         #region Event Handlers
 
@@ -1357,26 +1046,7 @@ namespace Fenceless.UI
             catch (Exception ex)
             {
                 logger.Error("Failed to apply settings on OK", "SettingsForm", ex);
-                MessageBox.Show($"Failed to apply settings: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void BtnApply_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                ApplyGlobalSettings();
-                if (selectedFenceInfo != null)
-                {
-                    ApplyFenceSettings();
-                }
-
-                MessageBox.Show("Settings applied successfully!", "Settings Applied", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                logger.Error("Failed to apply settings", "SettingsForm", ex);
-                MessageBox.Show($"Failed to apply settings: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                CustomMessageBox.Show($"Failed to apply settings: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -1390,7 +1060,7 @@ namespace Fenceless.UI
 
         private void BtnAdd_Click(object sender, EventArgs e)
         {
-            using (var dialog = new InputDialog("New Fence", "Enter fence name:"))
+            using (var dialog = new TextDialog("New Fence", "Enter fence name:"))
             {
                 if (dialog.ShowDialog(this) == DialogResult.OK)
                 {
@@ -1404,7 +1074,7 @@ namespace Fenceless.UI
         {
             if (selectedFenceInfo != null)
             {
-                var result = MessageBox.Show(
+                var result = CustomMessageBox.Show(
                     $"Reset fence '{selectedFenceInfo.Name}' to default settings?",
                     "Reset to Defaults",
                     MessageBoxButtons.YesNo,
@@ -1444,7 +1114,7 @@ namespace Fenceless.UI
         {
             if (selectedFenceInfo != null)
             {
-                var result = MessageBox.Show(
+                var result = CustomMessageBox.Show(
                     $"Set fence '{selectedFenceInfo.Name}' settings as new defaults?",
                     "Set as Defaults",
                     MessageBoxButtons.YesNo,
@@ -1475,9 +1145,9 @@ namespace Fenceless.UI
                     settings.DefaultItemSpacing = selectedFenceInfo.ItemSpacing;
 
                     settings.SaveSettings();
-                    LoadSettings(); // Reload default settings controls
+                    LoadSettings();
 
-                    MessageBox.Show("Default settings updated successfully!", "Defaults Updated", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    CustomMessageBox.Show("Default settings updated successfully!", "Defaults Updated", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
         }
@@ -1489,29 +1159,27 @@ namespace Fenceless.UI
             var listBox = (ListBox)sender;
             var fence = (FenceInfo)listBox.Items[e.Index];
 
-            // Background color
             Color backgroundColor = (e.State & DrawItemState.Selected) != 0
-                ? Color.FromArgb(81, 81, 81) // Selected color
-                : Color.FromArgb(60, 63, 65); // Normal color
+                ? Theme.Colors.SurfaceSelected
+                : Theme.Colors.InputBackground;
 
             using (var backgroundBrush = new SolidBrush(backgroundColor))
             {
                 e.Graphics.FillRectangle(backgroundBrush, e.Bounds);
             }
 
-            // Text color
-            using (var textBrush = new SolidBrush(Color.FromArgb(220, 220, 220)))
+            using (var textBrush = new SolidBrush(Theme.Colors.TextPrimary))
             {
-                e.Graphics.DrawString(fence.Name, e.Font, textBrush, e.Bounds, StringFormat.GenericDefault);
+                e.Graphics.DrawString(fence.Name, Theme.Fonts.Body, textBrush,
+                    new Rectangle(e.Bounds.X + 8, e.Bounds.Y, e.Bounds.Width - 16, e.Bounds.Height),
+                    StringFormat.GenericDefault);
             }
-
-            e.DrawFocusRectangle();
         }
 
         private void LstFences_SelectedIndexChanged(object sender, EventArgs e)
         {
             selectedFenceInfo = lstFences.SelectedItem as FenceInfo;
-            grpFenceSettings.Enabled = selectedFenceInfo != null;
+            fenceSettingsPanel.Enabled = selectedFenceInfo != null;
             LoadFenceSettings();
         }
 

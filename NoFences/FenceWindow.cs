@@ -1541,10 +1541,10 @@ namespace Fenceless
 
         private void renameToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var dialog = new UI.EditDialog("Edit Name", Text, "New name:");
+            var dialog = new UI.TextDialog("Edit Name", "New name:", Text);
             if (dialog.ShowDialog(this) == DialogResult.OK)
             {
-                Text = dialog.NewName;
+                Text = dialog.InputText;
                 fenceInfo.Name = Text;
                 Refresh();
                 Save();

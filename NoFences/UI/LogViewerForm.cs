@@ -1,5 +1,4 @@
 using Fenceless.Util;
-using Fenceless.Win32;
 using System;
 using System.Drawing;
 using System.IO;
@@ -8,9 +7,8 @@ using System.Windows.Forms;
 
 namespace Fenceless.UI
 {
-    public partial class LogViewerForm : Form
+    public class LogViewerForm : ThemedForm
     {
-        private Panel toolbarPanel;
         private Button refreshButton;
         private Button clearButton;
         private Button saveButton;
@@ -19,7 +17,7 @@ namespace Fenceless.UI
         private TextBox logTextBox;
         private StatusStrip statusStrip;
         private ToolStripStatusLabel statusLabel;
-        
+
         private readonly string logFilePath;
         private readonly Logger logger;
         private DateTime lastUpdateTime;
@@ -30,128 +28,81 @@ namespace Fenceless.UI
             logger = Logger.Instance;
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Fenceless");
             logFilePath = Path.Combine(appDataPath, "application.log");
-            
-            InitializeComponent();
-            LoadLogContent();
-            SetupRefreshTimer();
-        }
 
-        private void InitializeComponent()
-        {
-            this.SuspendLayout();
-
-            // Form setup with proper controls for dragging and closing
-            this.Text = "Fenceless - Log Viewer";
+            SetupThemedForm("Fenceless - Log Viewer", showMinimize: true, showMaximize: true, sizable: true);
             this.Size = new Size(1000, 700);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.MinimumSize = new Size(800, 500);
-            this.MaximizeBox = true;
-            this.MinimizeBox = true;
-            this.ControlBox = true; // Ensure control box is visible
-            this.ShowInTaskbar = true; // Show in taskbar for easier access
+            this.ShowInTaskbar = true;
 
-            // Create toolbar panel with dark styling
-            toolbarPanel = new Panel
+            CreateControls();
+            LoadLogContent();
+            SetupRefreshTimer();
+
+            this.Shown += (s, e) => AnimationHelper.FadeIn(this, 200);
+        }
+
+        private void CreateControls()
+        {
+            this.SuspendLayout();
+
+            var toolbarPanel = new Panel
             {
-                Height = 35,
+                Height = 40,
                 Dock = DockStyle.Top,
-                BackColor = Color.FromArgb(60, 63, 65)
+                BackColor = Theme.Colors.BackgroundDark,
+                Padding = new Padding(8, 4, 8, 4)
             };
 
-            refreshButton = new Button
-            {
-                Text = "Refresh",
-                Size = new Size(70, 25),
-                Location = new Point(5, 5),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(70, 73, 75),
-                ForeColor = Color.FromArgb(220, 220, 220)
-            };
-            refreshButton.FlatAppearance.BorderSize = 1;
-            refreshButton.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
+            refreshButton = Theme.CreateFlatButton("Refresh");
+            refreshButton.Size = new Size(70, Theme.Sizes.ButtonHeight);
+            refreshButton.Location = new Point(8, 6);
             refreshButton.Click += RefreshButton_Click;
 
-            clearButton = new Button
-            {
-                Text = "Clear Log",
-                Size = new Size(80, 25),
-                Location = new Point(85, 5),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(70, 73, 75),
-                ForeColor = Color.FromArgb(220, 220, 220)
-            };
-            clearButton.FlatAppearance.BorderSize = 1;
-            clearButton.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
+            clearButton = Theme.CreateFlatButton("Clear Log");
+            clearButton.Size = new Size(80, Theme.Sizes.ButtonHeight);
+            clearButton.Location = new Point(86, 6);
             clearButton.Click += ClearButton_Click;
 
-            saveButton = new Button
-            {
-                Text = "Save As...",
-                Size = new Size(80, 25),
-                Location = new Point(175, 5),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(70, 73, 75),
-                ForeColor = Color.FromArgb(220, 220, 220)
-            };
-            saveButton.FlatAppearance.BorderSize = 1;
-            saveButton.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
+            saveButton = Theme.CreateFlatButton("Save As...");
+            saveButton.Size = new Size(80, Theme.Sizes.ButtonHeight);
+            saveButton.Location = new Point(174, 6);
             saveButton.Click += SaveButton_Click;
 
-            autoScrollCheckBox = new CheckBox
-            {
-                Text = "Auto-scroll",
-                Checked = true,
-                Location = new Point(270, 8),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
+            autoScrollCheckBox = Theme.CreateCheckBox("Auto-scroll");
+            autoScrollCheckBox.Checked = true;
+            autoScrollCheckBox.Location = new Point(264, 9);
 
-            var logLevelLabel = new Label
-            {
-                Text = "Filter:",
-                Location = new Point(380, 8),
-                AutoSize = true,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.Transparent
-            };
+            var logLevelLabel = Theme.CreateLabel("Filter:");
+            logLevelLabel.Location = new Point(370, 10);
 
-            logLevelComboBox = new ComboBox
-            {
-                Width = 100,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Location = new Point(420, 5),
-                FlatStyle = FlatStyle.Flat,
-                ForeColor = Color.FromArgb(220, 220, 220),
-                BackColor = Color.FromArgb(50, 53, 55)
-            };
-            logLevelComboBox.Items.AddRange(new[] { "All", "Debug", "Info", "Warning", "Error", "Critical" });
+            logLevelComboBox = Theme.CreateComboBox(new[] { "All", "Debug", "Info", "Warning", "Error", "Critical" });
+            logLevelComboBox.Width = 100;
+            logLevelComboBox.Location = new Point(410, 6);
             logLevelComboBox.SelectedIndex = 0;
             logLevelComboBox.SelectedIndexChanged += LogLevelComboBox_SelectedIndexChanged;
 
-            toolbarPanel.Controls.AddRange(new Control[] { 
-                refreshButton, clearButton, saveButton, autoScrollCheckBox, logLevelLabel, logLevelComboBox 
+            toolbarPanel.Controls.AddRange(new Control[] {
+                refreshButton, clearButton, saveButton, autoScrollCheckBox, logLevelLabel, logLevelComboBox
             });
 
-            // Create log text box with dark styling
             logTextBox = new TextBox
             {
                 Multiline = true,
                 ScrollBars = ScrollBars.Both,
                 ReadOnly = true,
                 Dock = DockStyle.Fill,
-                Font = new Font("Consolas", 9, FontStyle.Regular),
-                BackColor = Color.FromArgb(43, 43, 43),
-                ForeColor = Color.FromArgb(220, 220, 220),
+                Font = Theme.Fonts.Monospace,
+                BackColor = Theme.Colors.InputBackground,
+                ForeColor = Theme.Colors.InputText,
                 BorderStyle = BorderStyle.None
             };
 
-            // Create status strip with dark styling
             statusStrip = new StatusStrip
             {
                 Dock = DockStyle.Bottom,
-                BackColor = Color.FromArgb(60, 63, 65),
-                ForeColor = Color.FromArgb(220, 220, 220)
+                BackColor = Theme.Colors.BackgroundDark,
+                ForeColor = Theme.Colors.TextSecondary
             };
 
             statusLabel = new ToolStripStatusLabel
@@ -159,26 +110,25 @@ namespace Fenceless.UI
                 Text = "Ready",
                 Spring = true,
                 TextAlign = ContentAlignment.MiddleLeft,
-                ForeColor = Color.FromArgb(220, 220, 220)
+                ForeColor = Theme.Colors.TextSecondary
             };
 
             statusStrip.Items.Add(statusLabel);
 
-            // Add controls to form
             this.Controls.Add(logTextBox);
             this.Controls.Add(toolbarPanel);
             this.Controls.Add(statusStrip);
+
+            BringChromeToFront();
 
             this.ResumeLayout(false);
         }
 
         private void SetupRefreshTimer()
         {
-            refreshTimer = new Timer
+            refreshTimer = new Timer { Interval = 2000 };
+            refreshTimer.Tick += (s, e) =>
             {
-                Interval = 2000 // Refresh every 2 seconds
-            };
-            refreshTimer.Tick += (s, e) => {
                 if (autoScrollCheckBox.Checked)
                 {
                     RefreshLogContent();
@@ -195,7 +145,7 @@ namespace Fenceless.UI
                 {
                     var content = File.ReadAllText(logFilePath);
                     FilterAndDisplayLogs(content);
-                    
+
                     var fileInfo = new FileInfo(logFilePath);
                     lastUpdateTime = fileInfo.LastWriteTime;
                     statusLabel.Text = $"Log loaded - {FormatFileSize(fileInfo.Length)} - Last updated: {lastUpdateTime:HH:mm:ss}";
@@ -223,7 +173,7 @@ namespace Fenceless.UI
                     if (fileInfo.LastWriteTime > lastUpdateTime)
                     {
                         LoadLogContent();
-                        
+
                         if (autoScrollCheckBox.Checked)
                         {
                             logTextBox.SelectionStart = logTextBox.Text.Length;
@@ -241,7 +191,7 @@ namespace Fenceless.UI
         private void FilterAndDisplayLogs(string content)
         {
             var selectedLevel = logLevelComboBox.SelectedItem?.ToString() ?? "All";
-            
+
             if (selectedLevel == "All")
             {
                 logTextBox.Text = content;
@@ -259,7 +209,6 @@ namespace Fenceless.UI
                     continue;
                 }
 
-                // Check if line contains the selected log level
                 if (line.Contains($"[{selectedLevel.ToUpper().PadRight(8)}]"))
                 {
                     filteredLines.AppendLine(line);
@@ -290,7 +239,7 @@ namespace Fenceless.UI
 
         private void ClearButton_Click(object sender, EventArgs e)
         {
-            var result = MessageBox.Show(
+            var result = CustomMessageBox.Show(
                 "This will permanently clear the log file. Are you sure?",
                 "Clear Log File",
                 MessageBoxButtons.YesNo,
@@ -307,7 +256,7 @@ namespace Fenceless.UI
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Error clearing log: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    CustomMessageBox.Show($"Error clearing log: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
@@ -331,7 +280,7 @@ namespace Fenceless.UI
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show($"Error saving log: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        CustomMessageBox.Show($"Error saving log: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                 }
             }
@@ -349,7 +298,6 @@ namespace Fenceless.UI
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            // Allow normal closing behavior instead of hiding
             refreshTimer?.Stop();
             refreshTimer?.Dispose();
             base.OnFormClosing(e);
