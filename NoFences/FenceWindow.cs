@@ -68,6 +68,8 @@ namespace Fenceless
 
         private readonly ThumbnailProvider thumbnailProvider = new ThumbnailProvider();
 
+        private readonly ToolTip itemToolTip = new ToolTip { InitialDelay = 500, ReshowDelay = 200, AutomaticDelay = 500 };
+
         // Override CreateParams to hide from Alt+Tab and prevent minimize on Show Desktop
         protected override CreateParams CreateParams
         {
@@ -345,7 +347,32 @@ namespace Fenceless
             if (!isAutoHidden)
             {
                 isAutoHidden = true;
-                this.Opacity = 0.1; // Nearly invisible but still responsive to mouse
+                if (AppSettings.Instance.EnableAnimations)
+                {
+                    var startOpacity = this.Opacity;
+                    var targetOpacity = 0.1;
+                    var timer = new FormsTimer { Interval = 16 };
+                    int steps = 12;
+                    int step = 0;
+                    double range = targetOpacity - startOpacity;
+                    timer.Tick += (s, e) =>
+                    {
+                        step++;
+                        double progress = (double)step / steps;
+                        this.Opacity = startOpacity + range * progress;
+                        if (step >= steps)
+                        {
+                            timer.Stop();
+                            timer.Dispose();
+                            this.Opacity = targetOpacity;
+                        }
+                    };
+                    timer.Start();
+                }
+                else
+                {
+                    this.Opacity = 0.1;
+                }
             }
         }
 
@@ -354,7 +381,32 @@ namespace Fenceless
             if (isAutoHidden)
             {
                 isAutoHidden = false;
-                this.Opacity = normalOpacity;
+                if (AppSettings.Instance.EnableAnimations)
+                {
+                    var startOpacity = this.Opacity;
+                    var targetOpacity = normalOpacity;
+                    var timer = new FormsTimer { Interval = 16 };
+                    int steps = 12;
+                    int step = 0;
+                    double range = targetOpacity - startOpacity;
+                    timer.Tick += (s, e) =>
+                    {
+                        step++;
+                        double progress = (double)step / steps;
+                        this.Opacity = startOpacity + range * progress;
+                        if (step >= steps)
+                        {
+                            timer.Stop();
+                            timer.Dispose();
+                            this.Opacity = targetOpacity;
+                        }
+                    };
+                    timer.Start();
+                }
+                else
+                {
+                    this.Opacity = normalOpacity;
+                }
             }
         }
 
@@ -601,18 +653,7 @@ namespace Fenceless
                 return true;
             }
             
-            // Handle keyboard shortcuts
-            if (keyData == (Keys.Control | Keys.Alt | Keys.T))
-            {
-                ToggleTransparency();
-                return true;
-            }
-            else if (keyData == (Keys.Control | Keys.Alt | Keys.S))
-            {
-                ShowAllFences();
-                return true;
-            }
-            else if (keyData == Keys.Delete && selectedItem != null && !lockedToolStripMenuItem.Checked)
+            if (keyData == Keys.Delete && selectedItem != null && !lockedToolStripMenuItem.Checked)
             {
                 RemoveSelectedItem();
                 return true;
@@ -1221,6 +1262,11 @@ namespace Fenceless
         public void ForceHide()
         {
             HideFence();
+        }
+
+        public void CycleTransparency()
+        {
+            ToggleTransparency();
         }
 
         public void HighlightFence()

@@ -19,6 +19,7 @@ namespace Fenceless
     {
         private static Logger logger;
         private static UI.LogViewerForm logViewerForm;
+        private static Util.AutoSaveManager autoSaveManager;
 
         /// <summary>
         /// The main entry point for the application.
@@ -181,6 +182,9 @@ namespace Fenceless
                                     logger.Info("No existing fences found, creating first fence", "Main");
                                     FenceManager.Instance.CreateFence("First fence");
                                 }
+
+                                autoSaveManager = new Util.AutoSaveManager();
+                                logger.Info("AutoSaveManager started", "Main");
                                 
                                 logger.Info("Fenceless initialized successfully", "Main");
                                 Application.Run();
@@ -436,6 +440,7 @@ namespace Fenceless
                 // Save all data before exit
                 FenceManager.Instance.SaveAllFences();
                 AppSettings.Instance.SaveSettings();
+                autoSaveManager?.Dispose();
                 FenceManager.Instance.Dispose();
                 
                 logger.Info("Fenceless shutdown complete", "Main");

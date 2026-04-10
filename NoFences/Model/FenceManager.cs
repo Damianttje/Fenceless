@@ -19,6 +19,12 @@ namespace Fenceless.Model
         private GlobalHotkeyManager hotkeyManager;
         private int toggleAutoHideHotkeyId = -1;
         private int showAllFencesHotkeyId = -1;
+        private int toggleTransparencyHotkeyId = -1;
+        private int createNewFenceHotkeyId = -1;
+        private int openSettingsHotkeyId = -1;
+        private int toggleLockHotkeyId = -1;
+        private int minimizeAllFencesHotkeyId = -1;
+        private int refreshFencesHotkeyId = -1;
         private readonly Logger logger;
         private static readonly object _saveLock = new object();
         private static readonly XmlSerializer FenceInfoSerializer = new XmlSerializer(typeof(FenceInfo));
@@ -63,20 +69,37 @@ namespace Fenceless.Model
             }
         }
 
+        private int[] _allHotkeyIds => new[]
+        {
+            toggleAutoHideHotkeyId, showAllFencesHotkeyId, toggleTransparencyHotkeyId,
+            createNewFenceHotkeyId, openSettingsHotkeyId, toggleLockHotkeyId,
+            minimizeAllFencesHotkeyId, refreshFencesHotkeyId
+        };
+
+        private void UnregisterAllHotkeys()
+        {
+            foreach (var id in _allHotkeyIds)
+            {
+                if (id != -1)
+                {
+                    hotkeyManager.UnregisterHotkey(id);
+                }
+            }
+            toggleAutoHideHotkeyId = -1;
+            showAllFencesHotkeyId = -1;
+            toggleTransparencyHotkeyId = -1;
+            createNewFenceHotkeyId = -1;
+            openSettingsHotkeyId = -1;
+            toggleLockHotkeyId = -1;
+            minimizeAllFencesHotkeyId = -1;
+            refreshFencesHotkeyId = -1;
+        }
+
         private void RegisterGlobalHotkeys()
         {
             try
             {
-                if (toggleAutoHideHotkeyId != -1)
-                {
-                    hotkeyManager.UnregisterHotkey(toggleAutoHideHotkeyId);
-                    toggleAutoHideHotkeyId = -1;
-                }
-                if (showAllFencesHotkeyId != -1)
-                {
-                    hotkeyManager.UnregisterHotkey(showAllFencesHotkeyId);
-                    showAllFencesHotkeyId = -1;
-                }
+                UnregisterAllHotkeys();
 
                 var settings = AppSettings.Instance;
 
@@ -90,6 +113,42 @@ namespace Fenceless.Model
                 {
                     showAllFencesHotkeyId = hotkeyManager.RegisterHotkey(
                         showAllKey, ctrl: showAllCtrl, alt: showAllAlt, shift: showAllShift, action: ShowAllFences);
+                }
+
+                if (TryParseShortcut(settings.ToggleTransparencyShortcut, out var transpKey, out var transpCtrl, out var transpAlt, out var transpShift))
+                {
+                    toggleTransparencyHotkeyId = hotkeyManager.RegisterHotkey(
+                        transpKey, ctrl: transpCtrl, alt: transpAlt, shift: transpShift, action: ToggleTransparency);
+                }
+
+                if (TryParseShortcut(settings.CreateNewFenceShortcut, out var newFenceKey, out var newFenceCtrl, out var newFenceAlt, out var newFenceShift))
+                {
+                    createNewFenceHotkeyId = hotkeyManager.RegisterHotkey(
+                        newFenceKey, ctrl: newFenceCtrl, alt: newFenceAlt, shift: newFenceShift, action: CreateNewFence);
+                }
+
+                if (TryParseShortcut(settings.OpenSettingsShortcut, out var settingsKey, out var settingsCtrl, out var settingsAlt, out var settingsShift))
+                {
+                    openSettingsHotkeyId = hotkeyManager.RegisterHotkey(
+                        settingsKey, ctrl: settingsCtrl, alt: settingsAlt, shift: settingsShift, action: ShowGlobalSettings);
+                }
+
+                if (TryParseShortcut(settings.ToggleLockShortcut, out var lockKey, out var lockCtrl, out var lockAlt, out var lockShift))
+                {
+                    toggleLockHotkeyId = hotkeyManager.RegisterHotkey(
+                        lockKey, ctrl: lockCtrl, alt: lockAlt, shift: lockShift, action: ToggleAllFencesLock);
+                }
+
+                if (TryParseShortcut(settings.MinimizeAllFencesShortcut, out var minKey, out var minCtrl, out var minAlt, out var minShift))
+                {
+                    minimizeAllFencesHotkeyId = hotkeyManager.RegisterHotkey(
+                        minKey, ctrl: minCtrl, alt: minAlt, shift: minShift, action: MinimizeAllFences);
+                }
+
+                if (TryParseShortcut(settings.RefreshFencesShortcut, out var refreshKey, out var refreshCtrl, out var refreshAlt, out var refreshShift))
+                {
+                    refreshFencesHotkeyId = hotkeyManager.RegisterHotkey(
+                        refreshKey, ctrl: refreshCtrl, alt: refreshAlt, shift: refreshShift, action: RefreshAllFences);
                 }
 
                 logger.Info("Global hotkeys registered from settings", "FenceManager");
@@ -398,6 +457,89 @@ namespace Fenceless.Model
             catch (Exception ex)
             {
                 logger.Error("Failed to hide all fences", "FenceManager", ex);
+            }
+        }
+
+        private void ToggleTransparency()
+        {
+            try
+            {
+                logger.Info("Toggling transparency for all fences", "FenceManager");
+                foreach (var fence in activeFences.ToList())
+                {
+                    fence.CycleTransparency();
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Failed to toggle transparency", "FenceManager", ex);
+            }
+        }
+
+        private void CreateNewFence()
+        {
+            try
+            {
+                logger.Info("Creating new fence from hotkey", "FenceManager");
+                CreateFence("New Fence");
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Failed to create new fence from hotkey", "FenceManager", ex);
+            }
+        }
+
+        private void ToggleAllFencesLock()
+        {
+            try
+            {
+                logger.Info("Toggling lock for all fences", "FenceManager");
+                bool newState = false;
+                foreach (var fence in activeFences.ToList())
+                {
+                    var info = fence.GetFenceInfo();
+                    info.Locked = !info.Locked;
+                    newState = info.Locked;
+                    fence.ApplySettings();
+                    UpdateFence(info);
+                }
+                logger.Info($"Lock toggled to {newState} for all fences", "FenceManager");
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Failed to toggle lock for all fences", "FenceManager", ex);
+            }
+        }
+
+        private void MinimizeAllFences()
+        {
+            try
+            {
+                logger.Info("Minimizing all fences", "FenceManager");
+                foreach (var fence in activeFences.ToList())
+                {
+                    fence.ForceHide();
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Failed to minimize all fences", "FenceManager", ex);
+            }
+        }
+
+        private void RefreshAllFences()
+        {
+            try
+            {
+                logger.Info("Refreshing all fences", "FenceManager");
+                foreach (var fence in activeFences.ToList())
+                {
+                    fence.Refresh();
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Failed to refresh all fences", "FenceManager", ex);
             }
         }
 

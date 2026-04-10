@@ -109,7 +109,11 @@ namespace Fenceless.UI
             LoadSettings();
             LoadFences();
 
-            this.Shown += (s, e) => AnimationHelper.FadeIn(this, 200);
+            this.Shown += (s, e) =>
+            {
+                if (AppSettings.Instance.EnableAnimations)
+                    AnimationHelper.FadeIn(this, 200);
+            };
         }
 
         private void InitializeComponent()
@@ -426,7 +430,11 @@ namespace Fenceless.UI
             btnAdd.Width = 60;
             btnAdd.Click += BtnAdd_Click;
 
-            buttonPanel.Controls.AddRange(new Control[] { btnRefresh, btnHighlight, btnAdd });
+            var btnDelete = Theme.CreateFlatButton("Delete", Theme.ButtonRole.Danger);
+            btnDelete.Width = 60;
+            btnDelete.Click += BtnDelete_Click;
+
+            buttonPanel.Controls.AddRange(new Control[] { btnRefresh, btnHighlight, btnAdd, btnDelete });
 
             lstFences = new ListBox
             {
@@ -1085,6 +1093,37 @@ namespace Fenceless.UI
                 {
                     FenceManager.Instance.CreateFence(dialog.InputText);
                     LoadFences();
+                }
+            }
+        }
+
+        private void BtnDelete_Click(object sender, EventArgs e)
+        {
+            if (selectedFenceInfo == null) return;
+
+            var result = CustomMessageBox.Show(
+                $"Delete fence '{selectedFenceInfo.Name}'?\n\nThis will permanently remove the fence and its configuration.",
+                "Delete Fence",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result == DialogResult.Yes)
+            {
+                try
+                {
+                    var fenceWindow = Application.OpenForms.OfType<FenceWindow>()
+                        .FirstOrDefault(f => f.GetFenceInfo().Id == selectedFenceInfo.Id);
+                    fenceWindow?.Close();
+
+                    FenceManager.Instance.RemoveFence(selectedFenceInfo);
+                    selectedFenceInfo = null;
+                    fenceSettingsPanel.Enabled = false;
+                    LoadFences();
+                }
+                catch (Exception ex)
+                {
+                    logger.Error($"Failed to delete fence '{selectedFenceInfo?.Name}'", "SettingsForm", ex);
+                    CustomMessageBox.Show($"Failed to delete fence: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }

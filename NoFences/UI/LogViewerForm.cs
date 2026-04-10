@@ -1,3 +1,4 @@
+using Fenceless.Model;
 using Fenceless.Util;
 using System;
 using System.Drawing;
@@ -41,7 +42,11 @@ namespace Fenceless.UI
             LoadLogContent();
             SetupRefreshTimer();
 
-            this.Shown += (s, e) => AnimationHelper.FadeIn(this, 200);
+            this.Shown += (s, e) =>
+            {
+                if (AppSettings.Instance.EnableAnimations)
+                    AnimationHelper.FadeIn(this, 200);
+            };
         }
 
         private void CreateControls()
