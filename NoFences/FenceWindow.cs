@@ -608,6 +608,30 @@ namespace Fenceless
                 return;
             }
 
+            // Handle DPI change when dragged between monitors with different DPI
+            if (m.Msg == 0x02E0) // WM_DPICHANGED
+            {
+                try
+                {
+                    var suggestedRect = Marshal.PtrToStructure<Rectangle>(m.LParam);
+                    Location = suggestedRect.Location;
+                    fenceInfo.PosX = Location.X;
+                    fenceInfo.PosY = Location.Y;
+                    logicalTitleHeight = fenceInfo.TitleHeight;
+                    titleHeight = LogicalToDeviceUnits(logicalTitleHeight);
+                    ReloadFonts();
+                    iconCache.ClearCache();
+                    Save();
+                    Invalidate();
+                }
+                catch (Exception ex)
+                {
+                    logger.Error($"Error handling DPI change: {ex.Message}", "FenceWindow", ex);
+                }
+                m.Result = IntPtr.Zero;
+                return;
+            }
+
             // Other messages
             base.WndProc(ref m);
 
@@ -842,6 +866,11 @@ namespace Fenceless
         private void searchToolStripMenuItem_Click(object sender, EventArgs e)
         {
             ToggleSearch();
+        }
+
+        private void resetPositionToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ResetPosition();
         }
 
         private void contextMenuStrip1_Opening(object sender, System.ComponentModel.CancelEventArgs e)
@@ -1380,6 +1409,58 @@ namespace Fenceless
         public void CycleTransparency()
         {
             ToggleTransparency();
+        }
+
+        public void ClampToScreen()
+        {
+            try
+            {
+                if (IsDisposed || !IsHandleCreated) return;
+
+                var rect = new Rectangle(Location, Size);
+                var screenBounds = Screen.FromRectangle(rect).Bounds;
+
+                if (!screenBounds.Contains(rect) && !screenBounds.IntersectsWith(rect))
+                {
+                    var primaryScreen = Screen.PrimaryScreen;
+                    if (primaryScreen != null)
+                    {
+                        var bounds = primaryScreen.Bounds;
+                        var newX = Math.Max(bounds.X, Math.Min(Location.X, bounds.Right - Width));
+                        var newY = Math.Max(bounds.Y, Math.Min(Location.Y, bounds.Bottom - Height));
+                        Location = new Point(newX, newY);
+                        fenceInfo.PosX = Location.X;
+                        fenceInfo.PosY = Location.Y;
+                        Save();
+                        logger.Info($"Clamped fence '{fenceInfo.Name}' to screen at ({Location.X}, {Location.Y})", "FenceWindow");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Error clamping fence to screen: {ex.Message}", "FenceWindow", ex);
+            }
+        }
+
+        public void ResetPosition()
+        {
+            try
+            {
+                var primaryScreen = Screen.PrimaryScreen;
+                if (primaryScreen != null)
+                {
+                    var bounds = primaryScreen.WorkingArea;
+                    Location = new Point(bounds.X + 100 + (Width % 300), bounds.Y + 100 + (Height % 200));
+                    fenceInfo.PosX = Location.X;
+                    fenceInfo.PosY = Location.Y;
+                    Save();
+                    logger.Info($"Reset fence '{fenceInfo.Name}' position to ({Location.X}, {Location.Y})", "FenceWindow");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Error resetting fence position: {ex.Message}", "FenceWindow", ex);
+            }
         }
 
         public void HighlightFence()

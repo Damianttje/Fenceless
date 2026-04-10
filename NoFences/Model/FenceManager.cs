@@ -1,4 +1,5 @@
 using System;
+using System.Drawing;
 using System.IO;
 using System.Xml.Serialization;
 using System.Collections.Generic;
@@ -6,6 +7,7 @@ using Fenceless.Util;
 using Fenceless.UI;
 using System.Windows.Forms;
 using System.Linq;
+using Microsoft.Win32;
 
 namespace Fenceless.Model
 {
@@ -38,6 +40,7 @@ namespace Fenceless.Model
             logger.Info($"FenceManager initialized with base path: {basePath}", "FenceManager");
             InitializeGlobalHotkeys();
             InitializeVisibilityMonitor();
+            InitializeMonitorDetection();
         }
 
         private void InitializeVisibilityMonitor()
@@ -53,6 +56,32 @@ namespace Fenceless.Model
                     catch { }
                 }
             }, null, TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(250));
+        }
+
+        private void InitializeMonitorDetection()
+        {
+            SystemEvents.DisplaySettingsChanged += (s, e) =>
+            {
+                try
+                {
+                    logger.Info("Display settings changed, checking fence positions", "FenceManager");
+                    foreach (var fence in activeFences.ToArray())
+                    {
+                        try
+                        {
+                            fence.ClampToScreen();
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.Error($"Failed to clamp fence to screen", "FenceManager", ex);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Error("Error handling display settings change", "FenceManager", ex);
+                }
+            };
         }
 
         private void InitializeGlobalHotkeys()
