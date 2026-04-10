@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 
@@ -172,6 +173,14 @@ namespace Fenceless.UI
             btnCancel.Size = new Size(Theme.Sizes.ButtonWidth, Theme.Sizes.ButtonHeight);
             btnCancel.DialogResult = DialogResult.Cancel;
 
+            var btnExport = Theme.CreateFlatButton("Export");
+            btnExport.Size = new Size(80, Theme.Sizes.ButtonHeight);
+            btnExport.Click += BtnExport_Click;
+
+            var btnImport = Theme.CreateFlatButton("Import");
+            btnImport.Size = new Size(80, Theme.Sizes.ButtonHeight);
+            btnImport.Click += BtnImport_Click;
+
             var buttonFlow = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.RightToLeft,
@@ -182,6 +191,8 @@ namespace Fenceless.UI
             };
             buttonFlow.Controls.Add(btnCancel);
             buttonFlow.Controls.Add(btnOK);
+            buttonFlow.Controls.Add(btnImport);
+            buttonFlow.Controls.Add(btnExport);
             footerPanel.Controls.Add(buttonFlow);
 
             this.Controls.Add(pagePanel);
@@ -1125,6 +1136,67 @@ namespace Fenceless.UI
                     logger.Error($"Failed to delete fence '{selectedFenceInfo?.Name}'", "SettingsForm", ex);
                     CustomMessageBox.Show($"Failed to delete fence: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
+            }
+        }
+
+        private void BtnExport_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (var dialog = new SaveFileDialog())
+                {
+                    dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*";
+                    dialog.DefaultExt = "json";
+                    dialog.FileName = $"Fenceless_Export_{DateTime.Now:yyyyMMdd_HHmmss}.json";
+                    dialog.Title = "Export Fence Configuration";
+
+                    if (dialog.ShowDialog(this) == DialogResult.OK)
+                    {
+                        var json = FenceManager.Instance.ExportAllFences(false);
+                        File.WriteAllText(dialog.FileName, json);
+                        CustomMessageBox.Show("Fence configuration exported successfully!", "Export Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        logger.Info($"Exported fence configuration to {dialog.FileName}", "SettingsForm");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Failed to export fence configuration", "SettingsForm", ex);
+                CustomMessageBox.Show($"Failed to export: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void BtnImport_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (var dialog = new OpenFileDialog())
+                {
+                    dialog.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*";
+                    dialog.Title = "Import Fence Configuration";
+
+                    if (dialog.ShowDialog(this) == DialogResult.OK)
+                    {
+                        var json = File.ReadAllText(dialog.FileName);
+                        var result = CustomMessageBox.Show(
+                            "Import fence configuration?\n\nExisting fences with the same name will be renamed.",
+                            "Import Fences",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Question);
+
+                        if (result == DialogResult.Yes)
+                        {
+                            var count = FenceManager.Instance.ImportFences(json, false);
+                            LoadFences();
+                            CustomMessageBox.Show($"Successfully imported {count} fence(s)!", "Import Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Failed to import fence configuration", "SettingsForm", ex);
+                CustomMessageBox.Show($"Failed to import: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 

@@ -6,6 +6,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Threading;
@@ -437,7 +438,8 @@ namespace Fenceless
             {
                 logger.Info("Fenceless shutting down...", "Main");
                 
-                // Save all data before exit
+                CreateBackup();
+                
                 FenceManager.Instance.SaveAllFences();
                 AppSettings.Instance.SaveSettings();
                 autoSaveManager?.Dispose();
@@ -445,7 +447,6 @@ namespace Fenceless
                 
                 logger.Info("Fenceless shutdown complete", "Main");
 
-                // Flush and dispose logger
                 logger.FlushLogs();
                 logger.Dispose();
             }
@@ -455,6 +456,39 @@ namespace Fenceless
                     logger.Error("Error during application exit", "Main", ex);
                 else
                     System.Diagnostics.Debug.WriteLine($"Error during application exit: {ex.Message}");
+            }
+        }
+
+        private static void CreateBackup()
+        {
+            try
+            {
+                var backupDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Fenceless", "backups");
+
+                Directory.CreateDirectory(backupDir);
+
+                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var backupFile = Path.Combine(backupDir, $"backup_{timestamp}.json");
+                var json = FenceManager.Instance.ExportAllFences(false);
+                File.WriteAllText(backupFile, json);
+
+                var maxBackups = 10;
+                var backups = Directory.GetFiles(backupDir, "backup_*.json")
+                    .OrderByDescending(f => f)
+                    .Skip(maxBackups)
+                    .ToList();
+                foreach (var old in backups)
+                {
+                    try { File.Delete(old); } catch { }
+                }
+
+                logger.Info($"Created backup: {backupFile}", "Main");
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Failed to create backup", "Main", ex);
             }
         }
     }

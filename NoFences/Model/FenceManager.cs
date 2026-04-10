@@ -8,6 +8,7 @@ using Fenceless.UI;
 using System.Windows.Forms;
 using System.Linq;
 using Microsoft.Win32;
+using Newtonsoft.Json;
 
 namespace Fenceless.Model
 {
@@ -704,6 +705,87 @@ namespace Fenceless.Model
         public int GetActiveFenceCount()
         {
             return activeFences.Count;
+        }
+
+        public string ExportAllFences(bool relativePaths)
+        {
+            try
+            {
+                var exportData = new
+                {
+                    Version = 1,
+                    ExportDate = DateTime.UtcNow.ToString("o"),
+                    Settings = AppSettings.Instance,
+                    Fences = activeFences.Select(f => f.GetFenceInfo()).Select(fi =>
+                    {
+                        if (relativePaths)
+                        {
+                            var exported = JsonConvert.DeserializeObject<FenceInfo>(JsonConvert.SerializeObject(fi));
+                            exported.Files = fi.Files.Select(p =>
+                            {
+                                try { return Path.GetRelativePath(basePath, p); }
+                                catch { return p; }
+                            }).ToList();
+                            return exported;
+                        }
+                        return fi;
+                    }).ToList()
+                };
+
+                return JsonConvert.SerializeObject(exportData, Formatting.Indented);
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Failed to export fences", "FenceManager", ex);
+                throw;
+            }
+        }
+
+        public int ImportFences(string json, bool overwriteExisting)
+        {
+            try
+            {
+                var importData = JsonConvert.DeserializeObject<dynamic>(json);
+                var fences = importData.Fences;
+                int imported = 0;
+
+                foreach (var fenceData in fences)
+                {
+                    var fenceInfo = JsonConvert.DeserializeObject<FenceInfo>(fenceData.ToString());
+
+                    if (!overwriteExisting)
+                    {
+                        var existing = activeFences.FirstOrDefault(f => f.GetFenceInfo().Name == fenceInfo.Name);
+                        if (existing != null)
+                        {
+                            fenceInfo.Name = $"{fenceInfo.Name} (imported)";
+                        }
+                    }
+                    else
+                    {
+                        var existing = activeFences.FirstOrDefault(f => f.GetFenceInfo().Name == fenceInfo.Name);
+                        if (existing != null)
+                        {
+                            existing.Close();
+                        }
+                    }
+
+                    UpdateFence(fenceInfo);
+                    var fenceWindow = new FenceWindow(fenceInfo);
+                    activeFences.Add(fenceWindow);
+                    fenceWindow.FormClosed += (s, e) => activeFences.Remove(fenceWindow);
+                    fenceWindow.Show();
+                    imported++;
+                }
+
+                logger.Info($"Imported {imported} fence(s)", "FenceManager");
+                return imported;
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Failed to import fences", "FenceManager", ex);
+                throw;
+            }
         }
 
         public void Dispose()
