@@ -3,6 +3,7 @@ using System.Windows.Forms;
 using Fenceless.Model;
 using Fenceless.UI.Widgets;
 using Fenceless.Util;
+using Newtonsoft.Json.Linq;
 
 var tests = new (string Name, Action Body)[]
 {
@@ -15,7 +16,15 @@ var tests = new (string Name, Action Body)[]
     ("Icon cache returns folder bitmaps for directories", IconCacheReturnsFolderBitmapsForDirectories),
     ("Clipboard image legacy entries parse", ClipboardImageLegacyEntriesParse),
     ("Widget renderer hit tests rows", WidgetRendererHitTestsRows),
-    ("Live folder snapshots include files and directories", LiveFolderSnapshotsIncludeFilesAndDirectories)
+    ("Live folder snapshots include files and directories", LiveFolderSnapshotsIncludeFilesAndDirectories),
+    ("Fence info normalization repairs invalid loaded values", FenceInfoNormalizationRepairsInvalidLoadedValues),
+    ("Fence export parser rejects invalid documents", FenceExportParserRejectsInvalidDocuments),
+    ("Fence export parser accepts typed documents", FenceExportParserAcceptsTypedDocuments),
+    ("Update release selection honors prerelease setting", UpdateReleaseSelectionHonorsPrereleaseSetting),
+    ("Update asset matching requires strict package names", UpdateAssetMatchingRequiresStrictPackageNames),
+    ("Update SHA256 validation accepts standard checksum files", UpdateSha256ValidationAcceptsStandardChecksumFiles),
+    ("Update prompt is suppressed for skipped version", UpdatePromptIsSuppressedForSkippedVersion),
+    ("Update staging validation requires root app files", UpdateStagingValidationRequiresRootAppFiles)
 };
 
 var failures = 0;
@@ -202,6 +211,191 @@ static void LiveFolderSnapshotsIncludeFilesAndDirectories()
     }
 }
 
+static void FenceInfoNormalizationRepairsInvalidLoadedValues()
+{
+    var info = new FenceInfo
+    {
+        Id = Guid.Empty,
+        Name = "   ",
+        Width = -1,
+        Height = 99999,
+        TitleHeight = 0,
+        Transparency = 200,
+        AutoHideDelay = 1,
+        BorderWidth = -5,
+        CornerRadius = 99,
+        IconSize = 3,
+        ItemSpacing = 100,
+        BackgroundTransparency = -1,
+        TitleBackgroundTransparency = 101,
+        TextTransparency = 500,
+        BorderTransparency = -30,
+        FenceTypeValue = 999,
+        Files = new List<string> { "", "C:\\Temp\\a.txt", "C:\\Temp\\a.txt" },
+        SortColumn = null!,
+        SearchFilter = null!,
+        WatchPath = null!,
+        FileFilter = null!,
+        ProcessFilter = null!,
+        WidgetDisplayMode = null!,
+        UpdateInterval = -1,
+        MaxItems = 0
+    };
+
+    FenceInfoValidator.Normalize(info);
+
+    Assert.False(info.Id == Guid.Empty, "id should be generated");
+    Assert.Equal("Untitled Fence", info.Name, "name");
+    Assert.Equal(524, info.Width, "width");
+    Assert.Equal(2000, info.Height, "height");
+    Assert.Equal(25, info.TitleHeight, "title height");
+    Assert.Equal(100, info.Transparency, "transparency");
+    Assert.Equal(500, info.AutoHideDelay, "auto hide delay");
+    Assert.Equal(0, info.BorderWidth, "border width");
+    Assert.Equal(50, info.CornerRadius, "corner radius");
+    Assert.Equal(16, info.IconSize, "icon size");
+    Assert.Equal(50, info.ItemSpacing, "item spacing");
+    Assert.Equal(0, info.BackgroundTransparency, "background opacity");
+    Assert.Equal(100, info.TitleBackgroundTransparency, "title opacity");
+    Assert.Equal(100, info.TextTransparency, "text opacity");
+    Assert.Equal(0, info.BorderTransparency, "border opacity");
+    Assert.Equal(FenceType.Standard, info.FenceType, "fence type");
+    Assert.Equal(1, info.Files.Count, "file count");
+    Assert.Equal("", info.SortColumn, "sort column");
+    Assert.Equal("", info.SearchFilter, "search filter");
+    Assert.Equal("", info.WatchPath, "watch path");
+    Assert.Equal("", info.FileFilter, "file filter");
+    Assert.Equal("", info.ProcessFilter, "process filter");
+    Assert.Equal("Auto", info.WidgetDisplayMode, "display mode");
+    Assert.Equal(3000, info.UpdateInterval, "update interval");
+    Assert.Equal(50, info.MaxItems, "max items");
+}
+
+static void FenceExportParserRejectsInvalidDocuments()
+{
+    Assert.Throws<InvalidDataException>(() => FenceExportDocument.Parse(""));
+    Assert.Throws<InvalidDataException>(() => FenceExportDocument.Parse("{\"Version\":1}"));
+}
+
+static void FenceExportParserAcceptsTypedDocuments()
+{
+    var json = """
+    {
+      "Version": 1,
+      "ExportDate": "2026-07-02T00:00:00Z",
+      "Fences": [
+        {
+          "Id": "00000000-0000-0000-0000-000000000000",
+          "Name": "Imported",
+          "Width": 100,
+          "Height": 9999,
+          "FenceTypeValue": 2,
+          "MaxItems": 0
+        }
+      ]
+    }
+    """;
+
+    var doc = FenceExportDocument.Parse(json);
+
+    Assert.Equal(1, doc.Fences.Count, "fence count");
+    Assert.Equal("Imported", doc.Fences[0].Name, "name");
+    Assert.False(doc.Fences[0].Id == Guid.Empty, "id should be generated");
+    Assert.Equal(200, doc.Fences[0].Width, "width");
+    Assert.Equal(2000, doc.Fences[0].Height, "height");
+    Assert.Equal(FenceType.RunningTasks, doc.Fences[0].FenceType, "type");
+    Assert.Equal(20, doc.Fences[0].MaxItems, "running tasks max items");
+}
+
+static void UpdateReleaseSelectionHonorsPrereleaseSetting()
+{
+    var releases = JArray.Parse("""
+    [
+      { "tag_name": "v1.1.0.0-beta.1", "prerelease": true, "draft": false },
+      { "tag_name": "v1.0.1.6", "prerelease": false, "draft": false },
+      { "tag_name": "v9.0.0.0", "prerelease": false, "draft": true }
+    ]
+    """);
+
+    var stable = UpdateService.SelectLatestRelease(releases, includePrereleases: false);
+    Assert.Equal(new Version(1, 0, 1, 6), stable.Version, "stable version");
+
+    var withPrerelease = UpdateService.SelectLatestRelease(releases, includePrereleases: true);
+    Assert.Equal(new Version(1, 1, 0, 0), withPrerelease.Version, "prerelease version");
+}
+
+static void UpdateAssetMatchingRequiresStrictPackageNames()
+{
+    var release = JObject.Parse("""
+    {
+      "assets": [
+        { "name": "Fenceless-v1.1.0.0-win-x64.zip", "browser_download_url": "https://example.test/app.zip" },
+        { "name": "Fenceless-v1.1.0.0-win-x64.zip.sha256", "browser_download_url": "https://example.test/app.zip.sha256" }
+      ]
+    }
+    """);
+
+    Assert.True(UpdateService.TryFindStrictAssets(release, new Version(1, 1, 0, 0), out var zip, out var sha, out var error), error);
+    Assert.Equal("Fenceless-v1.1.0.0-win-x64.zip", zip.Name, "zip asset");
+    Assert.Equal("Fenceless-v1.1.0.0-win-x64.zip.sha256", sha.Name, "sha asset");
+
+    var looseRelease = JObject.Parse("""
+    {
+      "assets": [
+        { "name": "Fenceless.zip", "browser_download_url": "https://example.test/app.zip" }
+      ]
+    }
+    """);
+
+    Assert.False(UpdateService.TryFindStrictAssets(looseRelease, new Version(1, 1, 0, 0), out _, out _, out _),
+        "loose asset names should not match");
+}
+
+static void UpdateSha256ValidationAcceptsStandardChecksumFiles()
+{
+    var tempPath = Path.Combine(Path.GetTempPath(), "FencelessHash_" + Guid.NewGuid().ToString("N") + ".txt");
+    File.WriteAllText(tempPath, "hello");
+
+    try
+    {
+        var expected = UpdateService.ComputeSha256(tempPath);
+        var parsed = UpdateService.ExtractSha256($"{expected}  Fenceless-v1.1.0.0-win-x64.zip");
+        Assert.Equal(expected, parsed, "parsed hash");
+        Assert.True(UpdateService.VerifySha256(tempPath, expected), "hash should verify");
+    }
+    finally
+    {
+        File.Delete(tempPath);
+    }
+}
+
+static void UpdatePromptIsSuppressedForSkippedVersion()
+{
+    Assert.False(UpdateService.ShouldPromptForVersion(new Version(1, 1, 0, 0), "1.1.0.0"), "skipped version should suppress");
+    Assert.True(UpdateService.ShouldPromptForVersion(new Version(1, 1, 0, 1), "1.1.0.0"), "different version should prompt");
+}
+
+static void UpdateStagingValidationRequiresRootAppFiles()
+{
+    var root = Path.Combine(Path.GetTempPath(), "FencelessStage_" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(root);
+
+    try
+    {
+        File.WriteAllText(Path.Combine(root, "Fenceless.exe"), "");
+        File.WriteAllText(Path.Combine(root, "Fenceless.dll"), "");
+        File.WriteAllText(Path.Combine(root, "Fenceless.runtimeconfig.json"), "");
+        UpdateService.ValidateStagedUpdate(root);
+
+        File.Delete(Path.Combine(root, "Fenceless.dll"));
+        Assert.Throws<InvalidDataException>(() => UpdateService.ValidateStagedUpdate(root));
+    }
+    finally
+    {
+        Directory.Delete(root, recursive: true);
+    }
+}
+
 static class Assert
 {
     public static void True(bool condition, string message)
@@ -218,5 +412,23 @@ static class Assert
     {
         if (!EqualityComparer<T>.Default.Equals(expected, actual))
             throw new InvalidOperationException($"{label}: expected {expected}, got {actual}");
+    }
+
+    public static void Throws<TException>(Action action) where TException : Exception
+    {
+        try
+        {
+            action();
+        }
+        catch (TException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"expected {typeof(TException).Name}, got {ex.GetType().Name}");
+        }
+
+        throw new InvalidOperationException($"expected {typeof(TException).Name}");
     }
 }

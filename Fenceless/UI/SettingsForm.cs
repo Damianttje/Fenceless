@@ -29,6 +29,7 @@ namespace Fenceless.UI
         private const string PageAppearance = "appearance";
         private const string PageHotkeys = "hotkeys";
         private const string PageFences = "fences";
+        private const string PageBackup = "backup";
 
         #region General Page Controls
         private ToggleSwitch chkAutoSave;
@@ -38,6 +39,12 @@ namespace Fenceless.UI
         private ToggleSwitch chkStartWithWindows;
         private ComboBox cmbLogLevel;
         private ToggleSwitch chkEnableFileLogging;
+        private ToggleSwitch chkEnableAutoUpdates;
+        private ToggleSwitch chkIncludePrereleaseUpdates;
+        private NumericUpDown nudUpdateCheckInterval;
+        private Button btnCheckUpdatesNow;
+        private Button btnClearSkippedUpdate;
+        private Label updateStatusLabel;
         #endregion
 
         #region Appearance Page Controls
@@ -72,6 +79,7 @@ namespace Fenceless.UI
         private HotkeyCaptureBox txtToggleLockShortcut;
         private HotkeyCaptureBox txtMinimizeAllFencesShortcut;
         private HotkeyCaptureBox txtRefreshFencesShortcut;
+        private Label hotkeyValidationLabel;
         #endregion
 
         #region Fences Page Controls
@@ -102,6 +110,7 @@ namespace Fenceless.UI
         private NumericUpDown nudFenceItemSpacing;
         private Button btnResetToDefaults;
         private Button btnSetAsDefaults;
+        private Label fenceValidationLabel;
         #endregion
 
         #region Type-Specific Controls
@@ -161,9 +170,10 @@ namespace Fenceless.UI
             sidebar.AddItem("Fences", "\uE8FD");
             sidebar.AddItem("Appearance", "\uE771");
             sidebar.AddItem("Hotkeys", "\uE7DF");
+            sidebar.AddItem("Backup", "\uE8C8");
             sidebar.PageChanged += (s, index) =>
             {
-                var keys = new[] { PageGeneral, PageFences, PageAppearance, PageHotkeys };
+                var keys = new[] { PageGeneral, PageFences, PageAppearance, PageHotkeys, PageBackup };
                 if (index < keys.Length)
                     pagePanel.SwitchTo(keys[index]);
             };
@@ -178,6 +188,7 @@ namespace Fenceless.UI
             pagePanel.AddPage(PageFences, CreateFencesPage());
             pagePanel.AddPage(PageAppearance, CreateAppearancePage());
             pagePanel.AddPage(PageHotkeys, CreateHotkeysPage());
+            pagePanel.AddPage(PageBackup, CreateBackupPage());
 
             footerPanel = new Panel
             {
@@ -279,8 +290,16 @@ namespace Fenceless.UI
             loggingSection.AddRow(CreateSettingsRow("File Logging", chkEnableFileLogging = new ToggleSwitch { Checked = true },
                 "Persist log messages to disk in addition to the in-app viewer."));
 
+            var updatesSection = new SettingsSection("Updates", 700);
+            updatesSection.AddRow(CreateSettingsRow("Auto Updates", chkEnableAutoUpdates = new ToggleSwitch { Checked = true },
+                "Check Codeberg releases on a schedule and stage verified portable update packages."));
+            updatesSection.AddRow(CreateSettingsRow("Include Prereleases", chkIncludePrereleaseUpdates = new ToggleSwitch { Checked = true }));
+            updatesSection.AddRow(CreateSettingsRow("Interval (minutes)", nudUpdateCheckInterval = Theme.CreateNumericUpDown(15, 1440, 60)));
+            updatesSection.AddRow(CreateUpdateActionsRow());
+
             page.Controls.Add(autoSaveSection);
             page.Controls.Add(behaviorSection);
+            page.Controls.Add(updatesSection);
             page.Controls.Add(loggingSection);
 
             return page;
@@ -356,6 +375,13 @@ namespace Fenceless.UI
             infoRow.Controls.Add(infoLabel);
             section.AddRow(infoRow);
 
+            var validationRow = new Panel { Height = 24, BackColor = Color.Transparent };
+            hotkeyValidationLabel = Theme.CreateLabel("", Theme.Fonts.Caption, Theme.Colors.Error);
+            hotkeyValidationLabel.AutoSize = false;
+            hotkeyValidationLabel.Dock = DockStyle.Fill;
+            validationRow.Controls.Add(hotkeyValidationLabel);
+            section.AddRow(validationRow);
+
             section.AddRow(CreateHotkeyRow("Toggle Transparency", out txtToggleTransparencyShortcut));
             section.AddRow(CreateHotkeyRow("Toggle Auto-Hide", out txtToggleAutoHideShortcut));
             section.AddRow(CreateHotkeyRow("Show All Fences", out txtShowAllFencesShortcut));
@@ -365,6 +391,43 @@ namespace Fenceless.UI
             section.AddRow(CreateHotkeyRow("Minimize All Fences", out txtMinimizeAllFencesShortcut));
             section.AddRow(CreateHotkeyRow("Refresh Fences", out txtRefreshFencesShortcut));
 
+            page.Controls.Add(section);
+
+            return page;
+        }
+
+        private ScrollableControl CreateBackupPage()
+        {
+            var page = CreateScrollPage();
+
+            var section = new SettingsSection("Configuration Backup", 700);
+            var info = new Panel { Height = 44, BackColor = Color.Transparent };
+            var label = Theme.CreateLabel("Export a portable JSON backup or import a previously exported configuration.",
+                Theme.Fonts.Caption, Theme.Colors.TextSecondary);
+            label.AutoSize = false;
+            label.Dock = DockStyle.Fill;
+            info.Controls.Add(label);
+
+            var actions = new FlowLayoutPanel
+            {
+                Height = Theme.Sizes.ButtonHeight + 8,
+                BackColor = Color.Transparent,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false
+            };
+
+            var btnExport = Theme.CreateFlatButton("Export Backup", Theme.ButtonRole.Accent);
+            btnExport.Size = new Size(120, Theme.Sizes.ButtonHeight);
+            btnExport.Click += BtnExport_Click;
+
+            var btnImport = Theme.CreateFlatButton("Import Backup");
+            btnImport.Size = new Size(120, Theme.Sizes.ButtonHeight);
+            btnImport.Click += BtnImport_Click;
+
+            actions.Controls.Add(btnExport);
+            actions.Controls.Add(btnImport);
+            section.AddRow(info);
+            section.AddRow(actions);
             page.Controls.Add(section);
 
             return page;
@@ -479,6 +542,13 @@ namespace Fenceless.UI
             cmbFenceType.SelectedIndexChanged += (s, e) => { if (!isUpdatingControls) UpdateTypeSpecificVisibility(); };
 
             var basicSection = new SettingsSection("Basic Settings", 500);
+            var validationPanel = new Panel { Height = 24, BackColor = Color.Transparent };
+            fenceValidationLabel = Theme.CreateLabel("", Theme.Fonts.Caption, Theme.Colors.Error);
+            fenceValidationLabel.AutoSize = false;
+            fenceValidationLabel.Dock = DockStyle.Fill;
+            validationPanel.Controls.Add(fenceValidationLabel);
+            basicSection.AddRow(validationPanel);
+
             txtFenceName = Theme.CreateTextBox();
             txtFenceName.Width = 200;
             basicSection.AddRow(CreateSettingsRow("Name", txtFenceName));
@@ -671,6 +741,30 @@ namespace Fenceless.UI
             return new SettingsRow(labelText, input);
         }
 
+        private SettingsRow CreateUpdateActionsRow()
+        {
+            var input = new Panel { Height = Theme.Sizes.ButtonHeight + 26 };
+
+            btnCheckUpdatesNow = Theme.CreateFlatButton("Check Now", Theme.ButtonRole.Accent);
+            btnCheckUpdatesNow.Size = new Size(100, Theme.Sizes.ButtonHeight);
+            btnCheckUpdatesNow.Location = new Point(0, 0);
+
+            btnClearSkippedUpdate = Theme.CreateFlatButton("Clear Skip");
+            btnClearSkippedUpdate.Size = new Size(96, Theme.Sizes.ButtonHeight);
+            btnClearSkippedUpdate.Location = new Point(btnCheckUpdatesNow.Right + 8, 0);
+
+            updateStatusLabel = Theme.CreateLabel("", Theme.Fonts.Caption, Theme.Colors.TextSecondary);
+            updateStatusLabel.AutoSize = false;
+            updateStatusLabel.Location = new Point(0, Theme.Sizes.ButtonHeight + 6);
+            updateStatusLabel.Size = new Size(420, 18);
+
+            input.Controls.Add(btnCheckUpdatesNow);
+            input.Controls.Add(btnClearSkippedUpdate);
+            input.Controls.Add(updateStatusLabel);
+
+            return new SettingsRow("Actions", input);
+        }
+
         private void WireAppearancePreview()
         {
             if (_appearancePreview == null) return;
@@ -726,7 +820,7 @@ namespace Fenceless.UI
             _globalSettingsDebounce?.Dispose();
             _globalSettingsDebounce = new System.Threading.Timer(_ =>
             {
-                try { this.Invoke(new Action(ApplyGlobalSettings)); } catch { }
+                try { this.Invoke(new Action(() => ApplyGlobalSettings())); } catch (Exception ex) { logger.Warning($"Debounced global settings save was skipped: {ex.Message}", "SettingsForm"); }
             }, null, 500, System.Threading.Timeout.Infinite);
         }
 
@@ -736,7 +830,7 @@ namespace Fenceless.UI
             _fenceSettingsDebounce?.Dispose();
             _fenceSettingsDebounce = new System.Threading.Timer(_ =>
             {
-                try { this.Invoke(new Action(() => ApplyFenceSettings())); } catch { }
+                try { this.Invoke(new Action(() => ApplyFenceSettings())); } catch (Exception ex) { logger.Warning($"Debounced fence settings save was skipped: {ex.Message}", "SettingsForm"); }
             }, null, 500, System.Threading.Timeout.Infinite);
         }
 
@@ -749,6 +843,11 @@ namespace Fenceless.UI
             chkStartWithWindows.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
             cmbLogLevel.SelectedIndexChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
             chkEnableFileLogging.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            chkEnableAutoUpdates.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            chkIncludePrereleaseUpdates.CheckedChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            nudUpdateCheckInterval.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
+            btnCheckUpdatesNow.Click += BtnCheckUpdatesNow_Click;
+            btnClearSkippedUpdate.Click += BtnClearSkippedUpdate_Click;
 
             txtToggleTransparencyShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
             txtToggleAutoHideShortcut.TextChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
@@ -840,6 +939,10 @@ namespace Fenceless.UI
                 chkStartWithWindows.Checked = settings.StartWithWindows;
                 cmbLogLevel.SelectedItem = settings.LogLevel;
                 chkEnableFileLogging.Checked = settings.EnableFileLogging;
+                chkEnableAutoUpdates.Checked = settings.EnableAutoUpdates;
+                chkIncludePrereleaseUpdates.Checked = settings.IncludePrereleaseUpdates;
+                nudUpdateCheckInterval.Value = Math.Max(nudUpdateCheckInterval.Minimum, Math.Min(nudUpdateCheckInterval.Maximum, settings.UpdateCheckIntervalMinutes));
+                UpdateUpdateStatusLabel();
 
                 txtToggleTransparencyShortcut.Text = settings.ToggleTransparencyShortcut;
                 txtToggleAutoHideShortcut.Text = settings.ToggleAutoHideShortcut;
@@ -1023,9 +1126,18 @@ namespace Fenceless.UI
             if (button is ColorPickerButton cpb) cpb.Invalidate();
         }
 
-        private void ApplyGlobalSettings()
+        private bool ApplyGlobalSettings()
         {
-            if (isUpdatingControls) return;
+            if (isUpdatingControls) return true;
+
+            if (!ValidateGlobalSettings(out var validationMessage))
+            {
+                SetValidationMessage(hotkeyValidationLabel, validationMessage, true);
+                _saveIndicator?.SetError();
+                return false;
+            }
+
+            SetValidationMessage(hotkeyValidationLabel, "", false);
 
             try
             {
@@ -1038,6 +1150,9 @@ namespace Fenceless.UI
                 settings.EnableAnimations = chkEnableAnimations.Checked;
                 settings.LogLevel = cmbLogLevel.SelectedItem?.ToString() ?? "Info";
                 settings.EnableFileLogging = chkEnableFileLogging.Checked;
+                settings.EnableAutoUpdates = chkEnableAutoUpdates.Checked;
+                settings.IncludePrereleaseUpdates = chkIncludePrereleaseUpdates.Checked;
+                settings.UpdateCheckIntervalMinutes = (int)nudUpdateCheckInterval.Value;
 
                 bool previousStartupSetting = settings.StartWithWindows;
                 settings.StartWithWindows = chkStartWithWindows.Checked;
@@ -1072,14 +1187,14 @@ namespace Fenceless.UI
                     }
                 }
 
-                settings.ToggleTransparencyShortcut = txtToggleTransparencyShortcut.Text;
-                settings.ToggleAutoHideShortcut = txtToggleAutoHideShortcut.Text;
-                settings.ShowAllFencesShortcut = txtShowAllFencesShortcut.Text;
-                settings.CreateNewFenceShortcut = txtCreateNewFenceShortcut.Text;
-                settings.OpenSettingsShortcut = txtOpenSettingsShortcut.Text;
-                settings.ToggleLockShortcut = txtToggleLockShortcut.Text;
-                settings.MinimizeAllFencesShortcut = txtMinimizeAllFencesShortcut.Text;
-                settings.RefreshFencesShortcut = txtRefreshFencesShortcut.Text;
+                settings.ToggleTransparencyShortcut = txtToggleTransparencyShortcut.Text.Trim();
+                settings.ToggleAutoHideShortcut = txtToggleAutoHideShortcut.Text.Trim();
+                settings.ShowAllFencesShortcut = txtShowAllFencesShortcut.Text.Trim();
+                settings.CreateNewFenceShortcut = txtCreateNewFenceShortcut.Text.Trim();
+                settings.OpenSettingsShortcut = txtOpenSettingsShortcut.Text.Trim();
+                settings.ToggleLockShortcut = txtToggleLockShortcut.Text.Trim();
+                settings.MinimizeAllFencesShortcut = txtMinimizeAllFencesShortcut.Text.Trim();
+                settings.RefreshFencesShortcut = txtRefreshFencesShortcut.Text.Trim();
 
                 settings.DefaultFenceWidth = (int)nudDefaultFenceWidth.Value;
                 settings.DefaultFenceHeight = (int)nudDefaultFenceHeight.Value;
@@ -1105,21 +1220,43 @@ namespace Fenceless.UI
                 settings.DefaultItemSpacing = (int)nudDefaultItemSpacing.Value;
 
                 settings.SaveSettings();
+                UpdateUpdateStatusLabel();
+                FenceManager.Instance.RegisterGlobalHotkeys();
+                if (!string.IsNullOrWhiteSpace(FenceManager.Instance.LastHotkeyRegistrationStatus))
+                {
+                    SetValidationMessage(hotkeyValidationLabel, FenceManager.Instance.LastHotkeyRegistrationStatus, true);
+                }
 
                 logger.Info("Global settings applied successfully", "SettingsForm");
                 _saveIndicator?.SetSaved();
+                return true;
             }
             catch (Exception ex)
             {
                 logger.Error("Failed to apply global settings", "SettingsForm", ex);
                 _saveIndicator?.SetError();
                 CustomMessageBox.Show($"Failed to apply settings: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
             }
         }
 
-        private void ApplyFenceSettings()
+        private bool ApplyFenceSettings()
         {
-            if (selectedFenceInfo == null || isUpdatingControls) return;
+            if (selectedFenceInfo == null || isUpdatingControls) return true;
+
+            if (!ValidateFenceSettings(out var validationMessage, out var isWarning))
+            {
+                SetValidationMessage(fenceValidationLabel, validationMessage, isWarning);
+                if (!isWarning)
+                {
+                    _saveIndicator?.SetError();
+                    return false;
+                }
+            }
+            else
+            {
+                SetValidationMessage(fenceValidationLabel, "", false);
+            }
 
             try
             {
@@ -1170,31 +1307,145 @@ namespace Fenceless.UI
                     _ => (int)nudLiveFolderMaxItems.Value
                 };
 
+                FenceInfoValidator.Normalize(selectedFenceInfo, AppSettings.Instance);
+
                 FenceManager.Instance.UpdateFence(selectedFenceInfo);
                 FenceManager.Instance.ApplySettingsToFence(selectedFenceInfo);
 
                 logger.Info($"Applied settings to fence '{selectedFenceInfo.Name}'", "SettingsForm");
                 _saveIndicator?.SetSaved();
+                return true;
             }
             catch (Exception ex)
             {
                 logger.Error($"Failed to apply fence settings for '{selectedFenceInfo?.Name}'", "SettingsForm", ex);
                 _saveIndicator?.SetError();
+                return false;
             }
+        }
+
+        private bool ValidateGlobalSettings(out string message)
+        {
+            message = "";
+            var shortcuts = new Dictionary<string, string>
+            {
+                ["Toggle Transparency"] = txtToggleTransparencyShortcut.Text.Trim(),
+                ["Toggle Auto-Hide"] = txtToggleAutoHideShortcut.Text.Trim(),
+                ["Show All Fences"] = txtShowAllFencesShortcut.Text.Trim(),
+                ["Create New Fence"] = txtCreateNewFenceShortcut.Text.Trim(),
+                ["Open Settings"] = txtOpenSettingsShortcut.Text.Trim(),
+                ["Toggle Lock"] = txtToggleLockShortcut.Text.Trim(),
+                ["Minimize All Fences"] = txtMinimizeAllFencesShortcut.Text.Trim(),
+                ["Refresh Fences"] = txtRefreshFencesShortcut.Text.Trim()
+            };
+
+            var used = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var shortcut in shortcuts)
+            {
+                if (string.IsNullOrWhiteSpace(shortcut.Value))
+                    continue;
+
+                if (!ShortcutParser.TryParse(shortcut.Value, out _))
+                {
+                    message = $"{shortcut.Key} has an invalid shortcut.";
+                    return false;
+                }
+
+                var normalized = shortcut.Value.Replace(" ", "");
+                if (used.TryGetValue(normalized, out var existing))
+                {
+                    message = $"{shortcut.Key} duplicates {existing}.";
+                    return false;
+                }
+
+                used[normalized] = shortcut.Key;
+            }
+
+            return true;
+        }
+
+        private bool ValidateFenceSettings(out string message, out bool isWarning)
+        {
+            message = "";
+            isWarning = false;
+
+            if (string.IsNullOrWhiteSpace(txtFenceName.Text))
+            {
+                message = "Fence name is required.";
+                return false;
+            }
+
+            var selectedType = cmbFenceType.SelectedIndex >= 0
+                ? (FenceType)cmbFenceType.SelectedIndex
+                : FenceType.Standard;
+
+            if (selectedType == FenceType.LiveFolder &&
+                (string.IsNullOrWhiteSpace(txtWatchPath.Text) || !Directory.Exists(txtWatchPath.Text)))
+            {
+                message = "Live Folder path is missing or unavailable; the fence will show an empty state.";
+                isWarning = true;
+                return false;
+            }
+
+            return true;
+        }
+
+        private static void SetValidationMessage(Label label, string message, bool warning)
+        {
+            if (label == null)
+                return;
+
+            label.Text = message ?? "";
+            label.ForeColor = warning ? Theme.Colors.Warning : Theme.Colors.Error;
         }
 
         #endregion
 
         #region Event Handlers
 
+        private async void BtnCheckUpdatesNow_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (!ApplyGlobalSettings())
+                    return;
+
+                btnCheckUpdatesNow.Enabled = false;
+                updateStatusLabel.Text = "Checking for updates...";
+                await UpdateService.Instance.CheckAndPromptAsync(force: true);
+                UpdateUpdateStatusLabel();
+            }
+            catch (Exception ex)
+            {
+                logger.Error("Manual update check failed", "SettingsForm", ex);
+                updateStatusLabel.Text = "Update check failed. See logs.";
+                CustomMessageBox.Show($"Update check failed: {ex.Message}", "Update Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnCheckUpdatesNow.Enabled = true;
+            }
+        }
+
+        private void BtnClearSkippedUpdate_Click(object sender, EventArgs e)
+        {
+            var settings = AppSettings.Instance;
+            settings.SkippedUpdateVersion = "";
+            settings.SaveSettings();
+            UpdateUpdateStatusLabel();
+            CustomMessageBox.Show("Skipped update version cleared.", "Updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
         private void BtnOK_Click(object sender, EventArgs e)
         {
             try
             {
-                ApplyGlobalSettings();
-                if (selectedFenceInfo != null)
+                if (!ApplyGlobalSettings())
+                    return;
+
+                if (selectedFenceInfo != null && !ApplyFenceSettings())
                 {
-                    ApplyFenceSettings();
+                    return;
                 }
 
                 this.DialogResult = DialogResult.OK;
@@ -1221,23 +1472,11 @@ namespace Fenceless.UI
             {
                 if (nameDialog.ShowDialog(this) != DialogResult.OK) return;
 
-                var typeNames = new[] { "Standard", "Live Folder", "Running Tasks", "Clipboard History" };
-                using (var typeDialog = new TextDialog("Fence Type", "Type (Standard/Live Folder/Running Tasks/Clipboard History):", "Standard"))
+                using (var typeDialog = new FenceTypeDialog())
                 {
                     if (typeDialog.ShowDialog(this) == DialogResult.OK)
                     {
-                        var typeText = typeDialog.InputText;
-                        FenceType type = FenceType.Standard;
-                        for (int i = 0; i < typeNames.Length; i++)
-                        {
-                            if (typeNames[i].Equals(typeText, StringComparison.OrdinalIgnoreCase))
-                            {
-                                type = (FenceType)i;
-                                break;
-                            }
-                        }
-
-                        FenceManager.Instance.CreateFence(nameDialog.InputText, type);
+                        FenceManager.Instance.CreateFence(nameDialog.InputText, typeDialog.SelectedFenceType);
                         LoadFences();
                     }
                 }
@@ -1477,6 +1716,21 @@ namespace Fenceless.UI
             selectedFenceInfo = lstFences.SelectedItem as FenceInfo;
             fenceSettingsPanel.Enabled = selectedFenceInfo != null;
             LoadFenceSettings();
+        }
+
+        private void UpdateUpdateStatusLabel()
+        {
+            if (updateStatusLabel == null)
+                return;
+
+            var settings = AppSettings.Instance;
+            var status = settings.EnableAutoUpdates ? $"Every {settings.UpdateCheckIntervalMinutes} min" : "Disabled";
+            if (!string.IsNullOrWhiteSpace(settings.SkippedUpdateVersion))
+                status += $" | Skipping {settings.SkippedUpdateVersion}";
+            if (!string.IsNullOrWhiteSpace(settings.PendingUpdateVersion))
+                status += $" | Staged {settings.PendingUpdateVersion}";
+
+            updateStatusLabel.Text = status;
         }
 
         #endregion

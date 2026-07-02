@@ -15,8 +15,8 @@
     <AssemblyDescription>Open Source Alternative to 'Stardock Fences'</AssemblyDescription>
     <AssemblyProduct>Fenceless</AssemblyProduct>
     <AssemblyCopyright>Copyright © Damianttje 2025</AssemblyCopyright>
-    <AssemblyVersion>1.0.1.6</AssemblyVersion>
-    <FileVersion>1.0.1.6</FileVersion>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
     <Platforms>AnyCPU;x86</Platforms>
   </PropertyGroup>
 
@@ -40,6 +40,10 @@
     <PackageReference Include="FontAwesome.Sharp" Version="6.6.0" />
     <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Fenceless.Updater\Fenceless.Updater.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>
@@ -72,5 +76,12 @@
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
   </ItemGroup>
+
+  <Target Name="CopyUpdaterHelper" AfterTargets="Build">
+    <ItemGroup>
+      <UpdaterHelperFiles Include="..\Fenceless.Updater\bin\$(Configuration)\net8.0-windows\Fenceless.Updater.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(UpdaterHelperFiles)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

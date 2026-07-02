@@ -50,6 +50,15 @@ namespace Fenceless.Model
         // Startup settings
         public bool StartWithWindows { get; set; } = false;
 
+        // Update settings
+        public bool EnableAutoUpdates { get; set; } = true;
+        public bool IncludePrereleaseUpdates { get; set; } = true;
+        public int UpdateCheckIntervalMinutes { get; set; } = 60;
+        public DateTime LastUpdateCheckUtc { get; set; } = DateTime.MinValue;
+        public string SkippedUpdateVersion { get; set; } = "";
+        public string PendingUpdateVersion { get; set; } = "";
+        public string PendingUpdatePath { get; set; } = "";
+
         // Global keyboard shortcuts
         public string ToggleTransparencyShortcut { get; set; } = "Ctrl+Alt+T";
         public string ToggleAutoHideShortcut { get; set; } = "Ctrl+Alt+H";
@@ -64,7 +73,7 @@ namespace Fenceless.Model
         private readonly string settingsPath;
         
         [JsonIgnore]
-        private readonly Logger logger;
+        private readonly Logger? logger;
         
         [JsonIgnore]
         private static readonly ReaderWriterLockSlim _settingsLock = new ReaderWriterLockSlim();
@@ -102,29 +111,7 @@ namespace Fenceless.Model
                     var json = File.ReadAllText(settingsPath);
                     JsonConvert.PopulateObject(json, this);
                     
-                    AutoSaveInterval = Math.Max(5, Math.Min(3600, AutoSaveInterval));
-                    DefaultFenceWidth = Math.Max(200, Math.Min(2000, DefaultFenceWidth));
-                    DefaultFenceHeight = Math.Max(200, Math.Min(2000, DefaultFenceHeight));
-                    DefaultTransparency = Math.Max(0, Math.Min(100, DefaultTransparency));
-                    DefaultAutoHideDelay = Math.Max(500, Math.Min(10000, DefaultAutoHideDelay));
-                    DefaultTitleHeight = Math.Max(15, Math.Min(50, DefaultTitleHeight));
-                    DefaultBorderWidth = Math.Max(0, Math.Min(10, DefaultBorderWidth));
-                    DefaultCornerRadius = Math.Max(0, Math.Min(50, DefaultCornerRadius));
-                    DefaultIconSize = Math.Max(16, Math.Min(256, DefaultIconSize));
-                    DefaultItemSpacing = Math.Max(5, Math.Min(50, DefaultItemSpacing));
-                    DefaultBackgroundTransparency = Math.Max(0, Math.Min(100, DefaultBackgroundTransparency));
-                    DefaultTitleBackgroundTransparency = Math.Max(0, Math.Min(100, DefaultTitleBackgroundTransparency));
-                    DefaultTextTransparency = Math.Max(0, Math.Min(100, DefaultTextTransparency));
-                    DefaultBorderTransparency = Math.Max(0, Math.Min(100, DefaultBorderTransparency));
-                    LogLevel = ValidateLogLevel(LogLevel);
-                    ToggleTransparencyShortcut = ValidateShortcut(ToggleTransparencyShortcut) ?? "Ctrl+Alt+T";
-                    ToggleAutoHideShortcut = ValidateShortcut(ToggleAutoHideShortcut) ?? "Ctrl+Alt+H";
-                    ShowAllFencesShortcut = ValidateShortcut(ShowAllFencesShortcut) ?? "Ctrl+Alt+S";
-                    CreateNewFenceShortcut = ValidateShortcut(CreateNewFenceShortcut) ?? "Ctrl+Alt+N";
-                    OpenSettingsShortcut = ValidateShortcut(OpenSettingsShortcut) ?? "Ctrl+Alt+O";
-                    ToggleLockShortcut = ValidateShortcut(ToggleLockShortcut) ?? "Ctrl+Alt+L";
-                    MinimizeAllFencesShortcut = ValidateShortcut(MinimizeAllFencesShortcut) ?? "Ctrl+Alt+M";
-                    RefreshFencesShortcut = ValidateShortcut(RefreshFencesShortcut) ?? "F5";
+                    NormalizeValues();
                     
                     logger?.Info("Application settings loaded successfully", "AppSettings");
                 }
@@ -151,6 +138,8 @@ namespace Fenceless.Model
                 logger?.Debug($"Saving settings to: {settingsPath}", "AppSettings");
                 
                 var json = JsonConvert.SerializeObject(this, Formatting.Indented);
+                NormalizeValues();
+                json = JsonConvert.SerializeObject(this, Formatting.Indented);
                 AtomicFileWrite(settingsPath, json);
                 
                 ApplyLoggingSettings();
@@ -254,9 +243,43 @@ namespace Fenceless.Model
             return validLevels.Contains(logLevel) ? logLevel : "Info";
         }
         
-        private string ValidateShortcut(string shortcut)
+        private string? ValidateShortcut(string shortcut)
         {
+            if (string.IsNullOrWhiteSpace(shortcut))
+                return "";
+
             return ShortcutParser.TryParse(shortcut, out _) ? shortcut : null;
+        }
+
+        private void NormalizeValues()
+        {
+            AutoSaveInterval = Math.Max(5, Math.Min(3600, AutoSaveInterval));
+            DefaultFenceWidth = Math.Max(200, Math.Min(2000, DefaultFenceWidth));
+            DefaultFenceHeight = Math.Max(200, Math.Min(2000, DefaultFenceHeight));
+            DefaultTransparency = Math.Max(0, Math.Min(100, DefaultTransparency));
+            DefaultAutoHideDelay = Math.Max(500, Math.Min(10000, DefaultAutoHideDelay));
+            DefaultTitleHeight = Math.Max(15, Math.Min(100, DefaultTitleHeight));
+            DefaultBorderWidth = Math.Max(0, Math.Min(10, DefaultBorderWidth));
+            DefaultCornerRadius = Math.Max(0, Math.Min(50, DefaultCornerRadius));
+            DefaultIconSize = Math.Max(16, Math.Min(256, DefaultIconSize));
+            DefaultItemSpacing = Math.Max(5, Math.Min(50, DefaultItemSpacing));
+            DefaultBackgroundTransparency = Math.Max(0, Math.Min(100, DefaultBackgroundTransparency));
+            DefaultTitleBackgroundTransparency = Math.Max(0, Math.Min(100, DefaultTitleBackgroundTransparency));
+            DefaultTextTransparency = Math.Max(0, Math.Min(100, DefaultTextTransparency));
+            DefaultBorderTransparency = Math.Max(0, Math.Min(100, DefaultBorderTransparency));
+            UpdateCheckIntervalMinutes = Math.Max(15, Math.Min(1440, UpdateCheckIntervalMinutes));
+            SkippedUpdateVersion = SkippedUpdateVersion ?? "";
+            PendingUpdateVersion = PendingUpdateVersion ?? "";
+            PendingUpdatePath = PendingUpdatePath ?? "";
+            LogLevel = ValidateLogLevel(LogLevel);
+            ToggleTransparencyShortcut = ValidateShortcut(ToggleTransparencyShortcut) ?? "Ctrl+Alt+T";
+            ToggleAutoHideShortcut = ValidateShortcut(ToggleAutoHideShortcut) ?? "Ctrl+Alt+H";
+            ShowAllFencesShortcut = ValidateShortcut(ShowAllFencesShortcut) ?? "Ctrl+Alt+S";
+            CreateNewFenceShortcut = ValidateShortcut(CreateNewFenceShortcut) ?? "Ctrl+Alt+N";
+            OpenSettingsShortcut = ValidateShortcut(OpenSettingsShortcut) ?? "Ctrl+Alt+O";
+            ToggleLockShortcut = ValidateShortcut(ToggleLockShortcut) ?? "Ctrl+Alt+L";
+            MinimizeAllFencesShortcut = ValidateShortcut(MinimizeAllFencesShortcut) ?? "Ctrl+Alt+M";
+            RefreshFencesShortcut = ValidateShortcut(RefreshFencesShortcut) ?? "F5";
         }
     }
 }

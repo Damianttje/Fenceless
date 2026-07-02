@@ -19,7 +19,7 @@ namespace Fenceless.Model
         private const string MetaFileName = "__fence_metadata.xml";
         private readonly string basePath;
         private readonly List<FenceWindow> activeFences = new List<FenceWindow>();
-        private GlobalHotkeyManager hotkeyManager;
+        private GlobalHotkeyManager? hotkeyManager;
         private int toggleAutoHideHotkeyId = -1;
         private int showAllFencesHotkeyId = -1;
         private int toggleTransparencyHotkeyId = -1;
@@ -31,7 +31,11 @@ namespace Fenceless.Model
         private readonly Logger logger;
         private static readonly object _saveLock = new object();
         private static readonly XmlSerializer FenceInfoSerializer = new XmlSerializer(typeof(FenceInfo));
-        private System.Threading.Timer _visibilityMonitor;
+        private System.Threading.Timer? _visibilityMonitor;
+        private EventHandler? _displaySettingsChangedHandler;
+        private int visibilityMonitorErrorCount = 0;
+
+        public string LastHotkeyRegistrationStatus { get; private set; } = "";
 
         public FenceManager()
         {
@@ -54,14 +58,21 @@ namespace Fenceless.Model
                     {
                         fence.CheckVisibility();
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        visibilityMonitorErrorCount++;
+                        if (visibilityMonitorErrorCount == 1 || visibilityMonitorErrorCount % 20 == 0)
+                        {
+                            logger.Warning($"Visibility monitor failed {visibilityMonitorErrorCount} time(s): {ex.Message}", "FenceManager");
+                        }
+                    }
                 }
             }, null, TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(250));
         }
 
         private void InitializeMonitorDetection()
         {
-            SystemEvents.DisplaySettingsChanged += (s, e) =>
+            _displaySettingsChangedHandler = (s, e) =>
             {
                 try
                 {
@@ -83,6 +94,7 @@ namespace Fenceless.Model
                     logger.Error("Error handling display settings change", "FenceManager", ex);
                 }
             };
+            SystemEvents.DisplaySettingsChanged += _displaySettingsChangedHandler;
         }
 
         private void InitializeGlobalHotkeys()
@@ -108,6 +120,9 @@ namespace Fenceless.Model
 
         private void UnregisterAllHotkeys()
         {
+            if (hotkeyManager == null)
+                return;
+
             foreach (var id in _allHotkeyIds)
             {
                 if (id != -1)
@@ -125,61 +140,29 @@ namespace Fenceless.Model
             refreshFencesHotkeyId = -1;
         }
 
-        private void RegisterGlobalHotkeys()
+        public void RegisterGlobalHotkeys()
         {
             try
             {
+                hotkeyManager ??= new GlobalHotkeyManager();
                 UnregisterAllHotkeys();
 
                 var settings = AppSettings.Instance;
 
-                if (TryParseShortcut(settings.ToggleAutoHideShortcut, out var autoHideKey, out var autoHideCtrl, out var autoHideAlt, out var autoHideShift))
-                {
-                    toggleAutoHideHotkeyId = hotkeyManager.RegisterHotkey(
-                        autoHideKey, ctrl: autoHideCtrl, alt: autoHideAlt, shift: autoHideShift, action: ToggleAllFencesAutoHide);
-                }
+                var failures = new List<string>();
 
-                if (TryParseShortcut(settings.ShowAllFencesShortcut, out var showAllKey, out var showAllCtrl, out var showAllAlt, out var showAllShift))
-                {
-                    showAllFencesHotkeyId = hotkeyManager.RegisterHotkey(
-                        showAllKey, ctrl: showAllCtrl, alt: showAllAlt, shift: showAllShift, action: ShowAllFences);
-                }
+                toggleAutoHideHotkeyId = RegisterConfiguredHotkey("Toggle Auto-Hide", settings.ToggleAutoHideShortcut, ToggleAllFencesAutoHide, failures);
+                showAllFencesHotkeyId = RegisterConfiguredHotkey("Show All Fences", settings.ShowAllFencesShortcut, ShowAllFences, failures);
+                toggleTransparencyHotkeyId = RegisterConfiguredHotkey("Toggle Transparency", settings.ToggleTransparencyShortcut, ToggleTransparency, failures);
+                createNewFenceHotkeyId = RegisterConfiguredHotkey("Create New Fence", settings.CreateNewFenceShortcut, CreateNewFence, failures);
+                openSettingsHotkeyId = RegisterConfiguredHotkey("Open Settings", settings.OpenSettingsShortcut, ShowGlobalSettings, failures);
+                toggleLockHotkeyId = RegisterConfiguredHotkey("Toggle Lock", settings.ToggleLockShortcut, ToggleAllFencesLock, failures);
+                minimizeAllFencesHotkeyId = RegisterConfiguredHotkey("Minimize All Fences", settings.MinimizeAllFencesShortcut, MinimizeAllFences, failures);
+                refreshFencesHotkeyId = RegisterConfiguredHotkey("Refresh Fences", settings.RefreshFencesShortcut, RefreshAllFences, failures);
 
-                if (TryParseShortcut(settings.ToggleTransparencyShortcut, out var transpKey, out var transpCtrl, out var transpAlt, out var transpShift))
-                {
-                    toggleTransparencyHotkeyId = hotkeyManager.RegisterHotkey(
-                        transpKey, ctrl: transpCtrl, alt: transpAlt, shift: transpShift, action: ToggleTransparency);
-                }
-
-                if (TryParseShortcut(settings.CreateNewFenceShortcut, out var newFenceKey, out var newFenceCtrl, out var newFenceAlt, out var newFenceShift))
-                {
-                    createNewFenceHotkeyId = hotkeyManager.RegisterHotkey(
-                        newFenceKey, ctrl: newFenceCtrl, alt: newFenceAlt, shift: newFenceShift, action: CreateNewFence);
-                }
-
-                if (TryParseShortcut(settings.OpenSettingsShortcut, out var settingsKey, out var settingsCtrl, out var settingsAlt, out var settingsShift))
-                {
-                    openSettingsHotkeyId = hotkeyManager.RegisterHotkey(
-                        settingsKey, ctrl: settingsCtrl, alt: settingsAlt, shift: settingsShift, action: ShowGlobalSettings);
-                }
-
-                if (TryParseShortcut(settings.ToggleLockShortcut, out var lockKey, out var lockCtrl, out var lockAlt, out var lockShift))
-                {
-                    toggleLockHotkeyId = hotkeyManager.RegisterHotkey(
-                        lockKey, ctrl: lockCtrl, alt: lockAlt, shift: lockShift, action: ToggleAllFencesLock);
-                }
-
-                if (TryParseShortcut(settings.MinimizeAllFencesShortcut, out var minKey, out var minCtrl, out var minAlt, out var minShift))
-                {
-                    minimizeAllFencesHotkeyId = hotkeyManager.RegisterHotkey(
-                        minKey, ctrl: minCtrl, alt: minAlt, shift: minShift, action: MinimizeAllFences);
-                }
-
-                if (TryParseShortcut(settings.RefreshFencesShortcut, out var refreshKey, out var refreshCtrl, out var refreshAlt, out var refreshShift))
-                {
-                    refreshFencesHotkeyId = hotkeyManager.RegisterHotkey(
-                        refreshKey, ctrl: refreshCtrl, alt: refreshAlt, shift: refreshShift, action: RefreshAllFences);
-                }
+                LastHotkeyRegistrationStatus = failures.Count == 0
+                    ? ""
+                    : string.Join(Environment.NewLine, failures);
 
                 logger.Info("Global hotkeys registered from settings", "FenceManager");
             }
@@ -225,6 +208,7 @@ namespace Fenceless.Model
                         var fenceInfo = LoadFenceInfo(metaFile);
                         if (fenceInfo != null)
                         {
+                            FenceInfoValidator.Normalize(fenceInfo, AppSettings.Instance);
                             var fenceWindow = new FenceWindow(fenceInfo);
                             activeFences.Add(fenceWindow);
                             fenceWindow.FormClosed += (s, e) => activeFences.Remove(fenceWindow);
@@ -256,21 +240,72 @@ namespace Fenceless.Model
             }
         }
 
-        private FenceInfo LoadFenceInfo(string metaFile)
+        private FenceInfo? LoadFenceInfo(string metaFile)
         {
             try
             {
-                using (var reader = new StreamReader(metaFile))
-                {
-                    var fenceInfo = FenceInfoSerializer.Deserialize(reader) as FenceInfo;
-                    logger.Debug($"Deserialized fence info from {metaFile}", "FenceManager");
-                    return fenceInfo;
-                }
+                var fenceInfo = DeserializeFenceInfo(metaFile);
+                logger.Debug($"Deserialized fence info from {metaFile}", "FenceManager");
+                return fenceInfo;
             }
             catch (Exception ex)
             {
                 logger.Error($"Failed to deserialize fence metadata from {metaFile}", "FenceManager", ex);
-                return null;
+
+                var backupPath = metaFile + ".bak";
+                if (!File.Exists(backupPath))
+                    return null;
+
+                try
+                {
+                    var backupInfo = DeserializeFenceInfo(backupPath);
+                    File.Copy(backupPath, metaFile, true);
+                    logger.Warning($"Recovered fence metadata from backup: {backupPath}", "FenceManager");
+                    return backupInfo;
+                }
+                catch (Exception backupEx)
+                {
+                    logger.Error($"Failed to recover fence metadata from backup: {backupPath}", "FenceManager", backupEx);
+                    return null;
+                }
+            }
+        }
+
+        private int RegisterConfiguredHotkey(string label, string shortcut, Action action, List<string> failures)
+        {
+            if (string.IsNullOrWhiteSpace(shortcut))
+                return -1;
+
+            if (!TryParseShortcut(shortcut, out var key, out var ctrl, out var alt, out var shift))
+            {
+                failures.Add($"{label}: invalid shortcut '{shortcut}'.");
+                return -1;
+            }
+
+            if (hotkeyManager == null)
+            {
+                failures.Add($"{label}: hotkey manager is unavailable.");
+                return -1;
+            }
+
+            var result = hotkeyManager.RegisterHotkeyDetailed(key, ctrl: ctrl, alt: alt, shift: shift, action: action);
+            if (!result.Registered)
+            {
+                failures.Add($"{label}: '{shortcut}' could not be registered. {result.Message}");
+            }
+
+            return result.Id;
+        }
+
+        private FenceInfo DeserializeFenceInfo(string filePath)
+        {
+            using (var reader = new StreamReader(filePath))
+            {
+                var info = FenceInfoSerializer.Deserialize(reader) as FenceInfo;
+                if (info == null)
+                    throw new InvalidDataException($"Fence metadata file did not contain a valid fence: {filePath}");
+
+                return info;
             }
         }
 
@@ -329,6 +364,7 @@ namespace Fenceless.Model
                         break;
                 }
 
+                FenceInfoValidator.Normalize(fenceInfo, settings);
                 UpdateFence(fenceInfo);
                 var fenceWindow = new FenceWindow(fenceInfo);
                 activeFences.Add(fenceWindow);
@@ -371,10 +407,8 @@ namespace Fenceless.Model
 
                 var metaFile = Path.Combine(path, MetaFileName);
                 
-                using (var writer = new StreamWriter(metaFile))
-                {
-                    FenceInfoSerializer.Serialize(writer, fenceInfo);
-                }
+                FenceInfoValidator.Normalize(fenceInfo, AppSettings.Instance);
+                AtomicFenceInfoWrite(metaFile, fenceInfo);
                 logger.Debug($"Updated fence '{fenceInfo.Name}' metadata", "FenceManager");
             }
             catch (Exception ex)
@@ -403,6 +437,45 @@ namespace Fenceless.Model
         private string GetFolderPath(FenceInfo fenceInfo)
         {
             return Path.Combine(basePath, fenceInfo.Id.ToString());
+        }
+
+        private void AtomicFenceInfoWrite(string metaFile, FenceInfo fenceInfo)
+        {
+            var tempPath = metaFile + ".tmp";
+            var backupPath = metaFile + ".bak";
+
+            try
+            {
+                using (var writer = new StreamWriter(tempPath))
+                {
+                    FenceInfoSerializer.Serialize(writer, fenceInfo);
+                }
+
+                if (File.Exists(metaFile))
+                {
+                    if (File.Exists(backupPath))
+                        File.Delete(backupPath);
+                    File.Replace(tempPath, metaFile, backupPath, true);
+                }
+                else
+                {
+                    File.Move(tempPath, metaFile);
+                }
+            }
+            catch
+            {
+                if (File.Exists(tempPath))
+                {
+                    try { File.Delete(tempPath); } catch (Exception ex) { logger.Warning($"Failed to delete temp metadata file: {ex.Message}", "FenceManager"); }
+                }
+
+                if (File.Exists(backupPath))
+                {
+                    try { File.Copy(backupPath, metaFile, true); } catch (Exception ex) { logger.Warning($"Failed to restore metadata backup: {ex.Message}", "FenceManager"); }
+                }
+
+                throw;
+            }
         }
 
         public void SaveAllFences()
@@ -479,23 +552,6 @@ namespace Fenceless.Model
             catch (Exception ex)
             {
                 logger.Error("Failed to show all fences", "FenceManager", ex);
-            }
-        }
-
-        private void HideAllFences()
-        {
-            try
-            {
-                logger.Info("Hiding all fences", "FenceManager");
-                foreach (var fence in activeFences.ToList())
-                {
-                    fence.ForceHide();
-                }
-                logger.Info($"Hidden {activeFences.Count} fence(s)", "FenceManager");
-            }
-            catch (Exception ex)
-            {
-                logger.Error("Failed to hide all fences", "FenceManager", ex);
             }
         }
 
@@ -582,29 +638,6 @@ namespace Fenceless.Model
             }
         }
 
-        public void ApplySettingsToAllFences(int transparency, bool autoHide, int autoHideDelay)
-        {
-            try
-            {
-                logger.Info($"Applying settings to all fences - Transparency: {transparency}%, AutoHide: {autoHide}, Delay: {autoHideDelay}ms", "FenceManager");
-                foreach (var fence in activeFences.ToList())
-                {
-                    var fenceInfo = fence.GetFenceInfo();
-                    fenceInfo.Transparency = transparency;
-                    fenceInfo.AutoHide = autoHide;
-                    fenceInfo.AutoHideDelay = autoHideDelay;
-                    
-                    fence.ApplySettings();
-                    UpdateFence(fenceInfo);
-                }
-                logger.Info($"Settings applied to {activeFences.Count} fence(s)", "FenceManager");
-            }
-            catch (Exception ex)
-            {
-                logger.Error("Failed to apply settings to all fences", "FenceManager", ex);
-            }
-        }
-
         public void ShowGlobalSettings()
         {
             try
@@ -613,8 +646,6 @@ namespace Fenceless.Model
                 var settingsForm = new SettingsForm();
                 if (settingsForm.ShowDialog() == DialogResult.OK)
                 {
-                    // Refresh global hotkeys if they changed
-                    RegisterGlobalHotkeys();
                     logger.Info("Global settings updated", "FenceManager");
                 }
             }
@@ -720,7 +751,7 @@ namespace Fenceless.Model
         {
             try
             {
-                var exportData = new
+                var exportData = new FenceExportDocument
                 {
                     Version = 1,
                     ExportDate = DateTime.UtcNow.ToString("o"),
@@ -730,7 +761,10 @@ namespace Fenceless.Model
                         if (relativePaths)
                         {
                             var exported = JsonConvert.DeserializeObject<FenceInfo>(JsonConvert.SerializeObject(fi));
-                            exported.Files = fi.Files.Select(p =>
+                            if (exported == null)
+                                return fi;
+
+                            exported.Files = (fi.Files ?? new List<string>()).Select(p =>
                             {
                                 try { return Path.GetRelativePath(basePath, p); }
                                 catch { return p; }
@@ -754,27 +788,29 @@ namespace Fenceless.Model
         {
             try
             {
-                var importData = JsonConvert.DeserializeObject<dynamic>(json);
+                var importData = FenceExportDocument.Parse(json);
                 var fences = importData.Fences;
                 int imported = 0;
 
                 foreach (var fenceData in fences)
                 {
-                    var fenceInfo = JsonConvert.DeserializeObject<FenceInfo>(fenceData.ToString());
+                    var fenceInfo = FenceInfoValidator.Normalize(fenceData, AppSettings.Instance);
 
                     if (!overwriteExisting)
                     {
-                        var existing = activeFences.FirstOrDefault(f => f.GetFenceInfo().Name == fenceInfo.Name);
-                        if (existing != null)
+                        if (activeFences.Any(f => f.GetFenceInfo().Id == fenceInfo.Id))
                         {
-                            fenceInfo.Name = $"{fenceInfo.Name} (imported)";
+                            fenceInfo.Id = Guid.NewGuid();
                         }
+
+                        fenceInfo.Name = GetUniqueFenceName(fenceInfo.Name);
                     }
                     else
                     {
                         var existing = activeFences.FirstOrDefault(f => f.GetFenceInfo().Name == fenceInfo.Name);
                         if (existing != null)
                         {
+                            RemoveFence(existing.GetFenceInfo());
                             existing.Close();
                         }
                     }
@@ -797,12 +833,38 @@ namespace Fenceless.Model
             }
         }
 
+        private string GetUniqueFenceName(string baseName)
+        {
+            var existingNames = new HashSet<string>(
+                activeFences.Select(f => f.GetFenceInfo().Name),
+                StringComparer.OrdinalIgnoreCase);
+
+            if (!existingNames.Contains(baseName))
+                return baseName;
+
+            var index = 2;
+            string candidate;
+            do
+            {
+                candidate = $"{baseName} ({index})";
+                index++;
+            }
+            while (existingNames.Contains(candidate));
+
+            return candidate;
+        }
+
         public void Dispose()
         {
             try
             {
                 logger.Info("Disposing FenceManager", "FenceManager");
                 _visibilityMonitor?.Dispose();
+                if (_displaySettingsChangedHandler != null)
+                {
+                    SystemEvents.DisplaySettingsChanged -= _displaySettingsChangedHandler;
+                    _displaySettingsChangedHandler = null;
+                }
                 hotkeyManager?.Dispose();
                 logger.Debug("FenceManager disposed successfully", "FenceManager");
             }
