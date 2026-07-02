@@ -40,38 +40,45 @@ namespace Fenceless.UI
             {
                 Dock = DockStyle.Fill,
                 BackColor = Theme.Colors.BackgroundMid,
-                Padding = new Padding(20, 12, 20, 0)
-            };
-
-            iconPanel = new Panel
-            {
-                Size = new Size(36, 36),
-                Location = new Point(0, 0),
-                BackColor = Color.Transparent
+                Padding = new Padding(24, 20, 24, 8)
             };
 
             var iconColor = GetIconColor(icon);
             var iconSymbol = GetIconSymbol(icon);
+            var iconFontName = Theme.TextFontName;
+            var useIconFont = icon != MessageBoxIcon.None;
 
-            var iconCircle = new Panel
+            iconPanel = new Panel
             {
-                Size = new Size(36, 36),
+                Size = new Size(40, 40),
+                Location = new Point(0, 0),
+                BackColor = Color.Transparent
+            };
+
+            var iconBadge = new Panel
+            {
+                Size = new Size(40, 40),
                 BackColor = iconColor
             };
-
-            var iconLabel = new Label
+            iconBadge.Paint += (s, e) =>
             {
-                Text = iconSymbol,
-                Font = new Font("Segoe UI", 16F, FontStyle.Bold),
-                ForeColor = Color.White,
-                BackColor = Color.Transparent,
-                AutoSize = false,
-                Size = new Size(36, 36),
-                TextAlign = ContentAlignment.MiddleCenter
+                var g = e.Graphics;
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (var path = Theme.CreateRoundedRectPath(new Rectangle(0, 0, 40, 40), 10))
+                using (var b = new SolidBrush(iconColor))
+                    g.FillPath(b, path);
+                if (useIconFont)
+                {
+                    using (var f = new Font(iconFontName, 16F))
+                    using (var br = new SolidBrush(Color.White))
+                    {
+                        var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                        g.DrawString(iconSymbol, f, br, new Rectangle(0, 0, 40, 40), sf);
+                    }
+                }
             };
 
-            iconCircle.Controls.Add(iconLabel);
-            iconPanel.Controls.Add(iconCircle);
+            iconPanel.Controls.Add(iconBadge);
 
             messageLabel = new Label
             {
@@ -80,49 +87,30 @@ namespace Fenceless.UI
                 ForeColor = Theme.Colors.TextPrimary,
                 BackColor = Color.Transparent,
                 AutoSize = false,
-                Location = new Point(48, 0),
-                Size = new Size(contentPanel.Width - 68, 60),
+                Location = new Point(52, 4),
+                Size = new Size(contentPanel.Width - 76, 80),
                 TextAlign = ContentAlignment.TopLeft
-            };
-
-            messageLabel.Paint += (s, e) =>
-            {
-                var label = s as Label;
-                if (label != null)
-                {
-                    var rect = new Rectangle(0, 0, label.Width, label.Height);
-                    var format = new StringFormat
-                    {
-                        Alignment = StringAlignment.Near,
-                        LineAlignment = StringAlignment.Near,
-                        FormatFlags = StringFormatFlags.LineLimit
-                    };
-                    e.Graphics.DrawString(label.Text, label.Font, new SolidBrush(label.ForeColor), rect, format);
-                }
             };
 
             contentPanel.Controls.Add(messageLabel);
             contentPanel.Controls.Add(iconPanel);
+            contentPanel.Resize += (s, e) =>
+            {
+                messageLabel.Width = contentPanel.ClientSize.Width - 52 - 24;
+                iconPanel.Location = new Point(0, 4);
+            };
 
             var footerPanel = new Panel
             {
-                Height = 48,
+                Height = 56,
                 Dock = DockStyle.Bottom,
                 BackColor = Theme.Colors.BackgroundDark,
-                Padding = new Padding(0, 0, 12, 0),
+                Padding = new Padding(12, 10, 12, 10),
                 Name = "footerPanel"
             };
 
             this.Controls.Add(contentPanel);
             this.Controls.Add(footerPanel);
-
-            this.Paint += (s, e) =>
-            {
-                using (Pen borderPen = new Pen(Theme.Colors.SurfaceBorder, 1))
-                {
-                    e.Graphics.DrawRectangle(borderPen, 0, 0, this.Width - 1, this.Height - 1);
-                }
-            };
         }
 
         private void CreateButtons(MessageBoxButtons buttons)

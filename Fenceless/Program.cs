@@ -73,6 +73,8 @@ namespace Fenceless
                             trayIcon.Text = "Fenceless - Desktop organization tool";
 
                             var contextMenu = new ContextMenuStrip();
+                            contextMenu.Renderer = new UI.FluentMenuRenderer();
+                            contextMenu.ShowImageMargin = false;
 
                             // Add Fence menu item with sub menu for fence type
                             var addFenceMenuItem = new ToolStripMenuItem("Add Fence");

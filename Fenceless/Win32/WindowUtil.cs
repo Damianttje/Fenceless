@@ -152,6 +152,87 @@ namespace Fenceless.Win32
         [DllImport("uxtheme.dll", EntryPoint = "#135", SetLastError = true, CharSet = CharSet.Unicode)]
         public static extern int SetPreferredAppMode(int preferredAppMode);
 
+        #region Fluent / Windows 11 backdrop
+
+        // DWM attribute IDs (Windows 11 build 22000+).
+        private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;   // DWM_WINDOW_CORNER_PREFERENCE
+        private const int DWMWA_SYSTEMBACKDROP_TYPE = 38;        // DWMSBT_* (build 22523+)
+        private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;   // dark title bar / borders
+
+        // DWM_WINDOW_CORNER_PREFERENCE values
+        private const int DWMWCP_DEFAULT = 0;
+        private const int DWMWCP_DONOTROUND = 1;
+        private const int DWMWCP_ROUND = 2;
+        private const int DWMWCP_ROUNDSMALL = 3;
+
+        // DWMSYSTEMBACKDROP_TYPE values
+        private const int DWMSBT_AUTO = 0;
+        private const int DWMSBT_NONE = 1;
+        private const int DWMSBT_MAINWINDOW = 2;   // Mica
+        private const int DWMSBT_TRANSIENTWINDOW = 3; // Acrylic
+        private const int DWMSBT_TABBEDWINDOW = 4; // Tabbed
+
+        [DllImport("dwmapi.dll", PreserveSig = false)]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+
+        [DllImport("dwmapi.dll", PreserveSig = false)]
+        private static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out int value, int size);
+
+        private static bool? _isWin11;
+
+        /// <summary>
+        /// True on Windows 11 (build 22000+) where Fluent backdrop APIs are available.
+        /// </summary>
+        public static bool IsWindows11
+        {
+            get
+            {
+                if (_isWin11.HasValue) return _isWin11.Value;
+                bool result;
+                try
+                {
+                    using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                        @"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
+                    {
+                        var current = key?.GetValue("CurrentBuild") as string;
+                        result = int.TryParse(current ?? "", out int build) && build >= 22000;
+                    }
+                }
+                catch
+                {
+                    result = false;
+                }
+                _isWin11 = result;
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Apply a Mica (or fallback) backdrop and rounded corners on Windows 11.
+        /// Silently no-ops on Windows 10.
+        /// </summary>
+        public static void ApplyFluentBackdrop(IntPtr handle, bool darkMode = true, bool mica = true)
+        {
+            if (!IsWindows11 || handle == IntPtr.Zero) return;
+            try
+            {
+                int dark = darkMode ? 1 : 0;
+                DwmSetWindowAttribute(handle, DWMWA_USE_IMMERSIVE_DARK_MODE, ref dark, sizeof(int));
+
+                int corner = DWMWCP_ROUND;
+                DwmSetWindowAttribute(handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref corner, sizeof(int));
+
+                int backdrop = mica ? DWMSBT_MAINWINDOW : DWMSBT_TRANSIENTWINDOW;
+                DwmSetWindowAttribute(handle, DWMWA_SYSTEMBACKDROP_TYPE, ref backdrop, sizeof(int));
+            }
+            catch
+            {
+                // Best-effort; never throw for cosmetic attributes.
+            }
+        }
+
+        #endregion
+
         public static void HideFromAltTab(IntPtr Handle)
         {
             try

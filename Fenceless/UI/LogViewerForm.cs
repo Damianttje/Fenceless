@@ -32,11 +32,10 @@ namespace Fenceless.UI
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Fenceless");
             logFilePath = Path.Combine(appDataPath, "application.log");
 
-            SetupThemedForm("Fenceless - Log Viewer", showMinimize: true, showMaximize: true, sizable: true);
+            SetupThemedForm("Fenceless - Log Viewer", showMinimize: true, showMaximize: true, sizable: true, showInTaskbar: true);
             this.Size = new Size(1000, 700);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.MinimumSize = new Size(800, 500);
-            this.ShowInTaskbar = true;
 
             CreateControls();
             LoadLogContent();
@@ -55,48 +54,65 @@ namespace Fenceless.UI
 
             var toolbarPanel = new Panel
             {
-                Height = 40,
+                Height = 48,
                 Dock = DockStyle.Top,
                 BackColor = Theme.Colors.BackgroundDark,
-                Padding = new Padding(8, 4, 8, 4)
+                Padding = new Padding(12, 8, 12, 8)
+            };
+
+            var toolbar = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                BackColor = Color.Transparent,
+                AutoScroll = false
             };
 
             refreshButton = Theme.CreateFlatButton("Refresh");
-            refreshButton.Size = new Size(70, Theme.Sizes.ButtonHeight);
-            refreshButton.Location = new Point(8, 6);
+            refreshButton.Size = new Size(80, Theme.Sizes.ButtonHeight);
             refreshButton.Click += RefreshButton_Click;
 
-            clearButton = Theme.CreateFlatButton("Clear Log");
-            clearButton.Size = new Size(80, Theme.Sizes.ButtonHeight);
-            clearButton.Location = new Point(86, 6);
+            clearButton = Theme.CreateFlatButton("Clear Log", Theme.ButtonRole.Danger);
+            clearButton.Size = new Size(90, Theme.Sizes.ButtonHeight);
             clearButton.Click += ClearButton_Click;
 
             saveButton = Theme.CreateFlatButton("Save As...");
-            saveButton.Size = new Size(80, Theme.Sizes.ButtonHeight);
-            saveButton.Location = new Point(174, 6);
+            saveButton.Size = new Size(90, Theme.Sizes.ButtonHeight);
             saveButton.Click += SaveButton_Click;
 
             autoScrollCheckBox = Theme.CreateCheckBox("Auto-scroll");
             autoScrollCheckBox.Checked = true;
-            autoScrollCheckBox.Location = new Point(264, 9);
+            autoScrollCheckBox.Margin = new Padding(12, 4, 0, 0);
 
-            var logLevelLabel = Theme.CreateLabel("Filter:");
-            logLevelLabel.Location = new Point(370, 10);
+            var logLevelLabel = Theme.CreateLabel("Filter:", Theme.Fonts.Body, Theme.Colors.TextSecondary);
+            logLevelLabel.AutoSize = true;
+            logLevelLabel.Margin = new Padding(12, 6, 4, 0);
 
             logLevelComboBox = Theme.CreateComboBox(new[] { "All", "Debug", "Info", "Warning", "Error", "Critical" });
-            logLevelComboBox.Width = 100;
-            logLevelComboBox.Location = new Point(410, 6);
+            logLevelComboBox.Width = 110;
             logLevelComboBox.SelectedIndex = 0;
             logLevelComboBox.SelectedIndexChanged += LogLevelComboBox_SelectedIndexChanged;
 
-            toolbarPanel.Controls.AddRange(new Control[] {
-                refreshButton, clearButton, saveButton, autoScrollCheckBox, logLevelLabel, logLevelComboBox
-            });
+            toolbar.Controls.Add(refreshButton);
+            toolbar.Controls.Add(clearButton);
+            toolbar.Controls.Add(saveButton);
+            toolbar.Controls.Add(autoScrollCheckBox);
+            toolbar.Controls.Add(logLevelLabel);
+            toolbar.Controls.Add(logLevelComboBox);
+            toolbarPanel.Controls.Add(toolbar);
+
+            var logHost = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Theme.Colors.BackgroundMid,
+                Padding = new Padding(8, 8, 8, 8)
+            };
 
             logTextBox = new TextBox
             {
                 Multiline = true,
-                ScrollBars = ScrollBars.Both,
+                ScrollBars = ScrollBars.Vertical,
                 ReadOnly = true,
                 Dock = DockStyle.Fill,
                 Font = Theme.Fonts.Monospace,
@@ -105,11 +121,23 @@ namespace Fenceless.UI
                 BorderStyle = BorderStyle.None
             };
 
+            var logBorder = new RoundedPanel
+            {
+                Dock = DockStyle.Fill,
+                CornerRadius = Theme.Sizes.ControlRadius,
+                BorderColor = Theme.Colors.StrokeControl,
+                BackColor = Theme.Colors.InputBackground,
+                Padding = new Padding(8, 6, 8, 6)
+            };
+            logBorder.Controls.Add(logTextBox);
+            logHost.Controls.Add(logBorder);
+
             statusStrip = new StatusStrip
             {
                 Dock = DockStyle.Bottom,
                 BackColor = Theme.Colors.BackgroundDark,
-                ForeColor = Theme.Colors.TextSecondary
+                ForeColor = Theme.Colors.TextSecondary,
+                Padding = new Padding(8, 4, 8, 4)
             };
 
             statusLabel = new ToolStripStatusLabel
@@ -119,10 +147,9 @@ namespace Fenceless.UI
                 TextAlign = ContentAlignment.MiddleLeft,
                 ForeColor = Theme.Colors.TextSecondary
             };
-
             statusStrip.Items.Add(statusLabel);
 
-            this.Controls.Add(logTextBox);
+            this.Controls.Add(logHost);
             this.Controls.Add(toolbarPanel);
             this.Controls.Add(statusStrip);
 
@@ -150,7 +177,13 @@ namespace Fenceless.UI
             {
                 if (File.Exists(logFilePath))
                 {
-                    var content = File.ReadAllText(logFilePath);
+                    string content;
+                    using (var fs = new FileStream(logFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    using (var sr = new StreamReader(fs))
+                    {
+                        content = sr.ReadToEnd();
+                    }
+
                     cachedFullContent = content;
                     lastReadPosition = 0;
                     FilterAndDisplayLogs(content);
@@ -272,8 +305,11 @@ namespace Fenceless.UI
             {
                 try
                 {
-                    File.WriteAllText(logFilePath, string.Empty);
+                    logger.ClearLogFile();
+                    cachedFullContent = "";
+                    lastReadPosition = 0;
                     logTextBox.Clear();
+                    lastUpdateTime = DateTime.Now;
                     statusLabel.Text = "Log file cleared";
                     logger.Info("Log file cleared by user", "LogViewer");
                 }

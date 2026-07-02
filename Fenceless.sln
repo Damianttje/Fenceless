@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36414.22
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fenceless", "NoFences\Fenceless.csproj", "{9B7EC27E-0066-4455-987C-6DC88C4BEE54}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fenceless", "Fenceless\Fenceless.csproj", "{9B7EC27E-0066-4455-987C-6DC88C4BEE54}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fenceless.Tests", "Fenceless.Tests\Fenceless.Tests.csproj", "{24E62870-2E31-4FA1-A814-93B7A34CE55F}"
 EndProject

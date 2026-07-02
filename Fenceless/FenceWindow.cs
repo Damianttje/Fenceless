@@ -1965,7 +1965,7 @@ namespace Fenceless
                 {
                     Width = 150,
                     Height = 22,
-                    Font = new Font("Segoe UI", 9),
+                    Font = new Font(Theme.TextFontName, 9),
                     BorderStyle = BorderStyle.FixedSingle
                 };
                 searchBox.TextChanged += SearchBox_TextChanged;

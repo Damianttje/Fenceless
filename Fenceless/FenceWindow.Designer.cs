@@ -68,7 +68,8 @@
             this.newFenceToolStripMenuItem,
             this.exitToolStripMenuItem});
             this.appContextMenu.Name = "contextMenuStrip1";
-            this.appContextMenu.RenderMode = System.Windows.Forms.ToolStripRenderMode.Professional;
+            this.appContextMenu.Renderer = new Fenceless.UI.FluentMenuRenderer();
+            this.appContextMenu.ShowImageMargin = false;
             this.appContextMenu.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStrip1_Opening);
             // 
             // deleteItemToolStripMenuItem

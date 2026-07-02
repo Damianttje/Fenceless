@@ -41,7 +41,7 @@ namespace Fenceless.UI
 
             item.ItemPanel = new Panel
             {
-                Height = 36,
+                Height = 40,
                 Dock = DockStyle.Top,
                 BackColor = Color.Transparent,
                 Margin = new Padding(0, 2, 0, 2),
@@ -58,11 +58,11 @@ namespace Fenceless.UI
             item.IconLabel = new Label
             {
                 Text = icon,
-                Font = new Font("Segoe MDL2 Assets", 12F),
+                Font = new Font(Theme.IconFontName, 12F),
                 ForeColor = Theme.Colors.SidebarItemText,
                 BackColor = Color.Transparent,
                 AutoSize = false,
-                Size = new Size(32, 36),
+                Size = new Size(36, 40),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Dock = DockStyle.Left,
                 Margin = new Padding(0, 0, 0, 0)
@@ -77,7 +77,7 @@ namespace Fenceless.UI
                 AutoSize = false,
                 TextAlign = ContentAlignment.MiddleLeft,
                 Dock = DockStyle.Fill,
-                Padding = new Padding(4, 0, 0, 0),
+                Padding = new Padding(6, 0, 0, 0),
                 Margin = new Padding(0)
             };
 

@@ -51,15 +51,15 @@ namespace Fenceless.UI
                 ForeColor = Theme.Colors.TextPrimary,
                 BackColor = Color.Transparent,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 0, 0)
+                Padding = new Padding(12, 0, 0, 0)
             };
 
-            closeButton = CreateTitleButton("\u2715");
+            closeButton = CreateTitleButton("\uE8BB");   // Fluent "Close"
             closeButton.Click += (s, e) => parentForm.Close();
             closeButton.MouseEnter += (s, e) => closeButton.BackColor = Theme.Colors.TitleBarButtonCloseHover;
             closeButton.MouseLeave += (s, e) => closeButton.BackColor = Theme.Colors.TitleBarButtonHover;
 
-            maximizeButton = CreateTitleButton("\u25A1");
+            maximizeButton = CreateTitleButton("\uE922");   // Fluent "ChromeMaximize"
             maximizeButton.Visible = showMaximize;
             maximizeButton.Click += (s, e) =>
             {
@@ -69,7 +69,7 @@ namespace Fenceless.UI
                     parentForm.WindowState = FormWindowState.Maximized;
             };
 
-            minimizeButton = CreateTitleButton("\u2500");
+            minimizeButton = CreateTitleButton("\uE921");   // Fluent "ChromeMinimize"
             minimizeButton.Visible = showMinimize;
             minimizeButton.Click += (s, e) => parentForm.WindowState = FormWindowState.Minimized;
 
@@ -124,8 +124,9 @@ namespace Fenceless.UI
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Theme.Colors.TitleBarBackground,
                 ForeColor = Theme.Colors.TextPrimary,
-                Font = new Font("Segoe UI", 10F),
-                Cursor = Cursors.Default
+                Font = new Font(Theme.IconFontName, 10F),
+                Cursor = Cursors.Default,
+                TextAlign = ContentAlignment.MiddleCenter
             };
             btn.FlatAppearance.BorderSize = 0;
             btn.FlatAppearance.MouseOverBackColor = Theme.Colors.TitleBarButtonHover;

@@ -19,6 +19,7 @@ namespace Fenceless.UI
         private bool isUpdatingControls = false;
         private System.Threading.Timer _globalSettingsDebounce;
         private System.Threading.Timer _fenceSettingsDebounce;
+        private SaveStatusIndicator _saveIndicator;
 
         private SidebarNavigation sidebar;
         private AnimatedPagePanel pagePanel;
@@ -59,6 +60,7 @@ namespace Fenceless.UI
         private ToggleSwitch chkDefaultShowShadow;
         private ComboBox cmbDefaultIconSize;
         private NumericUpDown nudDefaultItemSpacing;
+        private FencePreviewControl _appearancePreview;
         #endregion
 
         #region Hotkey Page Controls
@@ -103,19 +105,19 @@ namespace Fenceless.UI
         #endregion
 
         #region Type-Specific Controls
-        private Panel liveFolderPanel;
+        private SettingsSection liveFolderPanel;
         private TextBox txtWatchPath;
         private ToggleSwitch chkWatchRecursive;
         private TextBox txtFileFilter;
         private NumericUpDown nudLiveFolderMaxItems;
 
-        private Panel runningTasksPanel;
+        private SettingsSection runningTasksPanel;
         private NumericUpDown nudUpdateInterval;
         private ToggleSwitch chkShowMinimizedWindows;
         private TextBox txtProcessFilter;
         private NumericUpDown nudRunningTasksMaxItems;
 
-        private Panel clipboardHistoryPanel;
+        private SettingsSection clipboardHistoryPanel;
         private NumericUpDown nudClipboardMaxItems;
         private ToggleSwitch chkCaptureImages;
         #endregion
@@ -128,6 +130,8 @@ namespace Fenceless.UI
             InitializeComponent();
             LoadSettings();
             LoadFences();
+            WireAppearancePreview();
+            _appearancePreview?.Invalidate();
 
             this.Shown += (s, e) =>
             {
@@ -140,7 +144,7 @@ namespace Fenceless.UI
         {
             this.SuspendLayout();
 
-            SetupThemedForm("Fenceless Settings", showMinimize: true, showMaximize: true, sizable: true);
+            SetupThemedForm("Fenceless Settings", showMinimize: true, showMaximize: true, sizable: true, showInTaskbar: true);
             this.Size = new Size(1200, 700);
             this.MinimumSize = new Size(900, 600);
 
@@ -153,10 +157,10 @@ namespace Fenceless.UI
         private void CreateLayout()
         {
             sidebar = new SidebarNavigation();
-            sidebar.AddItem("General", "\uE80F");
+            sidebar.AddItem("General", "\uE713");
             sidebar.AddItem("Fences", "\uE8FD");
-            sidebar.AddItem("Appearance", "\uE790");
-            sidebar.AddItem("Hotkeys", "\uE8C1");
+            sidebar.AddItem("Appearance", "\uE771");
+            sidebar.AddItem("Hotkeys", "\uE7DF");
             sidebar.PageChanged += (s, index) =>
             {
                 var keys = new[] { PageGeneral, PageFences, PageAppearance, PageHotkeys };
@@ -180,7 +184,13 @@ namespace Fenceless.UI
                 Height = 48,
                 Dock = DockStyle.Bottom,
                 BackColor = Theme.Colors.BackgroundDark,
-                Padding = new Padding(0, 0, 12, 0)
+                Padding = new Padding(12, 0, 12, 0)
+            };
+
+            _saveIndicator = new SaveStatusIndicator
+            {
+                Dock = DockStyle.Left,
+                Width = 240
             };
 
             var btnOK = Theme.CreateFlatButton("OK", Theme.ButtonRole.Accent);
@@ -193,11 +203,11 @@ namespace Fenceless.UI
             btnCancel.DialogResult = DialogResult.Cancel;
 
             var btnExport = Theme.CreateFlatButton("Export");
-            btnExport.Size = new Size(80, Theme.Sizes.ButtonHeight);
+            btnExport.Size = new Size(84, Theme.Sizes.ButtonHeight);
             btnExport.Click += BtnExport_Click;
 
             var btnImport = Theme.CreateFlatButton("Import");
-            btnImport.Size = new Size(80, Theme.Sizes.ButtonHeight);
+            btnImport.Size = new Size(84, Theme.Sizes.ButtonHeight);
             btnImport.Click += BtnImport_Click;
 
             var buttonFlow = new FlowLayoutPanel
@@ -213,6 +223,7 @@ namespace Fenceless.UI
             buttonFlow.Controls.Add(btnImport);
             buttonFlow.Controls.Add(btnExport);
             footerPanel.Controls.Add(buttonFlow);
+            footerPanel.Controls.Add(_saveIndicator);
 
             this.Controls.Add(pagePanel);
             this.Controls.Add(footerPanel);
@@ -234,81 +245,43 @@ namespace Fenceless.UI
                 FlowDirection = FlowDirection.TopDown,
                 WrapContents = false,
                 AutoScroll = true,
-                Padding = new Padding(16, 8, 16, 16),
+                Padding = new Padding(20, 8, 20, 20),
                 Margin = Padding.Empty
             };
 
             page.Resize += (s, e) =>
             {
                 foreach (Control c in page.Controls)
-                    if (c is Panel section)
+                    if (c is RoundedPanel section)
                         section.Width = page.ClientSize.Width - page.Padding.Horizontal;
             };
 
             return page;
         }
 
-        private void AddSection(FlowLayoutPanel page, Panel section, int rowCount)
-        {
-            section.Height = 28 + rowCount * 36 + 12;
-            if (page.ClientSize.Width > 0)
-                section.Width = page.ClientSize.Width - page.Padding.Horizontal;
-            page.Controls.Add(section);
-        }
-
-        private void AddColorSection(FlowLayoutPanel page, Panel section, int rowCount)
-        {
-            section.Height = 28 + (rowCount - 1) * 50 + 38;
-            if (page.ClientSize.Width > 0)
-                section.Width = page.ClientSize.Width - page.Padding.Horizontal;
-            page.Controls.Add(section);
-        }
-
         private ScrollableControl CreateGeneralPage()
         {
             var page = CreateScrollPage();
 
-            var autoSaveSection = Theme.CreateSection("Auto Save", 700);
+            var autoSaveSection = new SettingsSection("Auto Save", 700);
+            autoSaveSection.AddRow(CreateSettingsRow("Auto Save", chkAutoSave = new ToggleSwitch { Checked = true },
+                "Automatically save fence layout changes at a regular interval."));
+            autoSaveSection.AddRow(CreateSettingsRow("Interval (seconds)", nudAutoSaveInterval = Theme.CreateNumericUpDown(5, 300, 30)));
 
-            chkAutoSave = new ToggleSwitch { Checked = true };
-            var autoSaveRow = CreateSettingsRow("Auto Save", chkAutoSave);
+            var behaviorSection = new SettingsSection("Behavior", 700);
+            behaviorSection.AddRow(CreateSettingsRow("Show Tooltips", chkShowTooltips = new ToggleSwitch { Checked = true }));
+            behaviorSection.AddRow(CreateSettingsRow("Enable Animations", chkEnableAnimations = new ToggleSwitch { Checked = true },
+                "Fade and slide transitions for the settings window and pages."));
+            behaviorSection.AddRow(CreateSettingsRow("Start with Windows", chkStartWithWindows = new ToggleSwitch { Checked = false }));
 
-            nudAutoSaveInterval = Theme.CreateNumericUpDown(5, 300, 30);
-            nudAutoSaveInterval.Width = 100;
-            var intervalRow = CreateSettingsRow("Interval (seconds)", nudAutoSaveInterval);
+            var loggingSection = new SettingsSection("Logging", 700);
+            loggingSection.AddRow(CreateSettingsRow("Log Level", cmbLogLevel = Theme.CreateComboBox(new[] { "Debug", "Info", "Warning", "Error", "Critical" })));
+            loggingSection.AddRow(CreateSettingsRow("File Logging", chkEnableFileLogging = new ToggleSwitch { Checked = true },
+                "Persist log messages to disk in addition to the in-app viewer."));
 
-            autoSaveSection.Controls.Add(intervalRow);
-            autoSaveSection.Controls.Add(autoSaveRow);
-
-            var behaviorSection = Theme.CreateSection("Behavior", 700);
-
-            chkShowTooltips = new ToggleSwitch { Checked = true };
-            chkEnableAnimations = new ToggleSwitch { Checked = true };
-            chkStartWithWindows = new ToggleSwitch { Checked = false };
-
-            var tooltipsRow = CreateSettingsRow("Show Tooltips", chkShowTooltips);
-            var animRow = CreateSettingsRow("Enable Animations", chkEnableAnimations);
-            var startupRow = CreateSettingsRow("Start with Windows", chkStartWithWindows);
-
-            behaviorSection.Controls.Add(startupRow);
-            behaviorSection.Controls.Add(animRow);
-            behaviorSection.Controls.Add(tooltipsRow);
-
-            var loggingSection = Theme.CreateSection("Logging", 700);
-
-            cmbLogLevel = Theme.CreateComboBox(new[] { "Debug", "Info", "Warning", "Error", "Critical" });
-            cmbLogLevel.Width = 120;
-            var logLevelRow = CreateSettingsRow("Log Level", cmbLogLevel);
-
-            chkEnableFileLogging = new ToggleSwitch { Checked = true };
-            var fileLogRow = CreateSettingsRow("File Logging", chkEnableFileLogging);
-
-            loggingSection.Controls.Add(fileLogRow);
-            loggingSection.Controls.Add(logLevelRow);
-
-            AddSection(page, loggingSection, 2);
-            AddSection(page, behaviorSection, 3);
-            AddSection(page, autoSaveSection, 2);
+            page.Controls.Add(autoSaveSection);
+            page.Controls.Add(behaviorSection);
+            page.Controls.Add(loggingSection);
 
             return page;
         }
@@ -317,60 +290,53 @@ namespace Fenceless.UI
         {
             var page = CreateScrollPage();
 
-            var sizeSection = Theme.CreateSection("Default Size", 700);
+            var previewHost = new Panel
+            {
+                Height = 150,
+                Width = 700,
+                BackColor = Theme.Colors.BackgroundMid,
+                Margin = new Padding(0, 0, 0, Theme.Sizes.SectionSpacing)
+            };
+            var preview = new FencePreviewControl
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Theme.Colors.BackgroundMid
+            };
+            var previewCaption = Theme.CreateLabel("Live preview", Theme.Fonts.Caption, Theme.Colors.TextSecondary);
+            previewCaption.Dock = DockStyle.Top;
+            previewCaption.Padding = new Padding(4, 0, 0, 4);
+            previewHost.Controls.Add(preview);
+            previewHost.Controls.Add(previewCaption);
+            _appearancePreview = preview;
+            page.Controls.Add(previewHost);
 
-            nudDefaultFenceWidth = Theme.CreateNumericUpDown(200, 2000, 524);
-            nudDefaultFenceWidth.Width = 100;
-            nudDefaultFenceHeight = Theme.CreateNumericUpDown(200, 2000, 517);
-            nudDefaultFenceHeight.Width = 100;
-            nudDefaultTitleHeight = Theme.CreateNumericUpDown(16, 100, 25);
-            nudDefaultTitleHeight.Width = 100;
+            var sizeSection = new SettingsSection("Default Size", 700);
+            sizeSection.AddRow(CreateSettingsRow("Width", nudDefaultFenceWidth = Theme.CreateNumericUpDown(200, 2000, 524)));
+            sizeSection.AddRow(CreateSettingsRow("Height", nudDefaultFenceHeight = Theme.CreateNumericUpDown(200, 2000, 517)));
+            sizeSection.AddRow(CreateSettingsRow("Title Height", nudDefaultTitleHeight = Theme.CreateNumericUpDown(16, 100, 25)));
 
-            sizeSection.Controls.Add(CreateSettingsRow("Title Height", nudDefaultTitleHeight));
-            sizeSection.Controls.Add(CreateSettingsRow("Height", nudDefaultFenceHeight));
-            sizeSection.Controls.Add(CreateSettingsRow("Width", nudDefaultFenceWidth));
+            var appearanceSection = new SettingsSection("Default Appearance", 700);
+            appearanceSection.AddRow(CreateSettingsRow("Transparency (%)", nudDefaultTransparency = Theme.CreateNumericUpDown(25, 100, 80)));
+            appearanceSection.AddRow(CreateSettingsRow("Auto Hide", chkDefaultAutoHide = new ToggleSwitch()));
+            appearanceSection.AddRow(CreateSettingsRow("Auto Hide Delay (ms)", nudDefaultAutoHideDelay = Theme.CreateNumericUpDown(500, 10000, 2000)));
 
-            var appearanceSection = Theme.CreateSection("Default Appearance", 700);
+            var colorsSection = new SettingsSection("Default Colors", 700);
+            colorsSection.AddRow(CreateColorRow("Background", out btnDefaultBackgroundColor, out nudDefaultBackgroundTransparency, 0));
+            colorsSection.AddRow(CreateColorRow("Title Background", out btnDefaultTitleBackgroundColor, out nudDefaultTitleBackgroundTransparency, 50));
+            colorsSection.AddRow(CreateColorRow("Text", out btnDefaultTextColor, out nudDefaultTextTransparency, 100));
+            colorsSection.AddRow(CreateColorRow("Border", out btnDefaultBorderColor, out nudDefaultBorderTransparency, 150));
 
-            nudDefaultTransparency = Theme.CreateNumericUpDown(25, 100, 80);
-            nudDefaultTransparency.Width = 100;
-            chkDefaultAutoHide = new ToggleSwitch();
-            nudDefaultAutoHideDelay = Theme.CreateNumericUpDown(500, 10000, 2000);
-            nudDefaultAutoHideDelay.Width = 100;
+            var styleSection = new SettingsSection("Default Style", 700);
+            styleSection.AddRow(CreateSettingsRow("Item Spacing", nudDefaultItemSpacing = Theme.CreateNumericUpDown(5, 50, 15)));
+            styleSection.AddRow(CreateSettingsRow("Icon Size", cmbDefaultIconSize = Theme.CreateComboBox(new[] { "16", "24", "32", "48", "64" })));
+            styleSection.AddRow(CreateSettingsRow("Show Shadow", chkDefaultShowShadow = new ToggleSwitch { Checked = true }));
+            styleSection.AddRow(CreateSettingsRow("Corner Radius", nudDefaultCornerRadius = Theme.CreateNumericUpDown(0, 50, 0)));
+            styleSection.AddRow(CreateSettingsRow("Border Width", nudDefaultBorderWidth = Theme.CreateNumericUpDown(0, 10, 0)));
 
-            appearanceSection.Controls.Add(CreateSettingsRow("Auto Hide Delay (ms)", nudDefaultAutoHideDelay));
-            appearanceSection.Controls.Add(CreateSettingsRow("Auto Hide", chkDefaultAutoHide));
-            appearanceSection.Controls.Add(CreateSettingsRow("Transparency (%)", nudDefaultTransparency));
-
-            var colorsSection = Theme.CreateSection("Default Colors", 700);
-
-            (btnDefaultBackgroundColor, nudDefaultBackgroundTransparency) = CreateColorSettingsRow(colorsSection, "Background", 0);
-            (btnDefaultTitleBackgroundColor, nudDefaultTitleBackgroundTransparency) = CreateColorSettingsRow(colorsSection, "Title Background", 50);
-            (btnDefaultTextColor, nudDefaultTextTransparency) = CreateColorSettingsRow(colorsSection, "Text", 100);
-            (btnDefaultBorderColor, nudDefaultBorderTransparency) = CreateColorSettingsRow(colorsSection, "Border", 150);
-
-            var styleSection = Theme.CreateSection("Default Style", 700);
-
-            nudDefaultBorderWidth = Theme.CreateNumericUpDown(0, 10, 0);
-            nudDefaultBorderWidth.Width = 100;
-            nudDefaultCornerRadius = Theme.CreateNumericUpDown(0, 50, 0);
-            nudDefaultCornerRadius.Width = 100;
-            chkDefaultShowShadow = new ToggleSwitch { Checked = true };
-            cmbDefaultIconSize = Theme.CreateComboBox(new[] { "16", "24", "32", "48", "64" });
-            cmbDefaultIconSize.Width = 100;
-            nudDefaultItemSpacing = Theme.CreateNumericUpDown(5, 50, 15);
-            nudDefaultItemSpacing.Width = 100;
-
-            styleSection.Controls.Add(CreateSettingsRow("Item Spacing", nudDefaultItemSpacing));
-            styleSection.Controls.Add(CreateSettingsRow("Icon Size", cmbDefaultIconSize));
-            styleSection.Controls.Add(CreateSettingsRow("Show Shadow", chkDefaultShowShadow));
-            styleSection.Controls.Add(CreateSettingsRow("Corner Radius", nudDefaultCornerRadius));
-            styleSection.Controls.Add(CreateSettingsRow("Border Width", nudDefaultBorderWidth));
-
-            AddSection(page, styleSection, 5);
-            AddColorSection(page, colorsSection, 4);
-            AddSection(page, appearanceSection, 3);
-            AddSection(page, sizeSection, 3);
+            page.Controls.Add(sizeSection);
+            page.Controls.Add(appearanceSection);
+            page.Controls.Add(colorsSection);
+            page.Controls.Add(styleSection);
 
             return page;
         }
@@ -379,30 +345,26 @@ namespace Fenceless.UI
         {
             var page = CreateScrollPage();
 
-            var section = Theme.CreateSection("Global Hotkeys", 700);
+            var section = new SettingsSection("Global Hotkeys", 700);
 
-            var infoLabel = Theme.CreateLabel("Click a hotkey field and press the desired key combination. Press Escape to clear.", Theme.Fonts.Small, Theme.Colors.TextSecondary);
-            infoLabel.Location = new Point(12, 32);
+            var infoRow = new Panel { Height = 36, BackColor = Color.Transparent };
+            var infoLabel = Theme.CreateLabel("Click a field and press the desired key combination. Press Escape to clear.",
+                Theme.Fonts.Caption, Theme.Colors.TextSecondary);
+            infoLabel.Location = new Point(0, 8);
             infoLabel.MaximumSize = new Size(676, 0);
-            section.Controls.Add(infoLabel);
+            infoLabel.AutoSize = true;
+            infoRow.Controls.Add(infoLabel);
+            section.AddRow(infoRow);
 
-            int y = 56;
-            int hotkeyWidth = 200;
-            int clearWidth = 60;
+            section.AddRow(CreateHotkeyRow("Toggle Transparency", out txtToggleTransparencyShortcut));
+            section.AddRow(CreateHotkeyRow("Toggle Auto-Hide", out txtToggleAutoHideShortcut));
+            section.AddRow(CreateHotkeyRow("Show All Fences", out txtShowAllFencesShortcut));
+            section.AddRow(CreateHotkeyRow("Create New Fence", out txtCreateNewFenceShortcut));
+            section.AddRow(CreateHotkeyRow("Open Settings", out txtOpenSettingsShortcut));
+            section.AddRow(CreateHotkeyRow("Toggle Lock", out txtToggleLockShortcut));
+            section.AddRow(CreateHotkeyRow("Minimize All Fences", out txtMinimizeAllFencesShortcut));
+            section.AddRow(CreateHotkeyRow("Refresh Fences", out txtRefreshFencesShortcut));
 
-            txtToggleTransparencyShortcut = CreateHotkeyRow(section, "Toggle Transparency", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
-            txtToggleAutoHideShortcut = CreateHotkeyRow(section, "Toggle Auto-Hide", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
-            txtShowAllFencesShortcut = CreateHotkeyRow(section, "Show All Fences", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
-            txtCreateNewFenceShortcut = CreateHotkeyRow(section, "Create New Fence", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
-            txtOpenSettingsShortcut = CreateHotkeyRow(section, "Open Settings", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
-            txtToggleLockShortcut = CreateHotkeyRow(section, "Toggle Lock", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
-            txtMinimizeAllFencesShortcut = CreateHotkeyRow(section, "Minimize All Fences", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
-            txtRefreshFencesShortcut = CreateHotkeyRow(section, "Refresh Fences", 12, y, 700, hotkeyWidth, clearWidth); y += 36;
-
-            section.Height = y + 8;
-
-            if (page.ClientSize.Width > 0)
-                section.Width = page.ClientSize.Width - page.Padding.Horizontal;
             page.Controls.Add(section);
 
             return page;
@@ -424,7 +386,7 @@ namespace Fenceless.UI
                 RowCount = 1,
                 BackColor = Theme.Colors.BackgroundMid
             };
-            mainContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 250));
+            mainContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270));
             mainContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             mainContainer.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
@@ -432,36 +394,34 @@ namespace Fenceless.UI
             {
                 Dock = DockStyle.Fill,
                 BackColor = Theme.Colors.BackgroundMid,
-                Padding = new Padding(0, 0, 8, 0)
+                Padding = new Padding(0, 0, 10, 0)
             };
 
-            var listSection = Theme.CreateSection("Active Fences", 230);
-            listSection.Dock = DockStyle.Fill;
-            listSection.Padding = new Padding(8, 28, 8, 8);
+            var listCard = new CardPanel("Active Fences") { Dock = DockStyle.Fill };
 
             var buttonPanel = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.LeftToRight,
-                Height = Theme.Sizes.ButtonHeight + 4,
+                Height = Theme.Sizes.ButtonHeight + 8,
                 Dock = DockStyle.Top,
                 WrapContents = false,
-                Margin = new Padding(0, 0, 0, 4)
+                Margin = new Padding(0, 0, 0, 6)
             };
 
             var btnRefresh = Theme.CreateFlatButton("Refresh");
-            btnRefresh.Width = 70;
+            btnRefresh.Width = 78;
             btnRefresh.Click += (s, e) => LoadFences();
 
             var btnHighlight = Theme.CreateFlatButton("Highlight");
-            btnHighlight.Width = 70;
+            btnHighlight.Width = 78;
             btnHighlight.Click += BtnHighlight_Click;
 
             var btnAdd = Theme.CreateFlatButton("Add");
-            btnAdd.Width = 60;
+            btnAdd.Width = 64;
             btnAdd.Click += BtnAdd_Click;
 
             var btnDelete = Theme.CreateFlatButton("Delete", Theme.ButtonRole.Danger);
-            btnDelete.Width = 60;
+            btnDelete.Width = 68;
             btnDelete.Click += BtnDelete_Click;
 
             buttonPanel.Controls.AddRange(new Control[] { btnRefresh, btnHighlight, btnAdd, btnDelete });
@@ -474,13 +434,13 @@ namespace Fenceless.UI
                 BorderStyle = BorderStyle.None,
                 DrawMode = DrawMode.OwnerDrawFixed,
                 Font = Theme.Fonts.Body,
-                ItemHeight = 28
+                ItemHeight = 30
             };
             lstFences.DisplayMember = "Name";
 
-            listSection.Controls.Add(lstFences);
-            listSection.Controls.Add(buttonPanel);
-            leftPanel.Controls.Add(listSection);
+            listCard.Content.Controls.Add(lstFences);
+            listCard.Content.Controls.Add(buttonPanel);
+            leftPanel.Controls.Add(listCard);
 
             fenceSettingsPanel = new FlowLayoutPanel
             {
@@ -497,7 +457,7 @@ namespace Fenceless.UI
             fenceSettingsPanel.Resize += (s, e) =>
             {
                 foreach (Control c in fenceSettingsPanel.Controls)
-                    if (c is Panel section)
+                    if (c is RoundedPanel section)
                         section.Width = fenceSettingsPanel.ClientSize.Width;
             };
 
@@ -512,170 +472,111 @@ namespace Fenceless.UI
 
         private void CreateFenceSettingsEditor()
         {
-            var typeSection = Theme.CreateSection("Fence Type", 500);
-
+            var typeSection = new SettingsSection("Fence Type", 500);
             cmbFenceType = Theme.CreateComboBox(new[] { "Standard", "Live Folder", "Running Tasks", "Clipboard History" });
             cmbFenceType.Width = 200;
-            typeSection.Controls.Add(CreateSettingsRow("Type", cmbFenceType));
+            typeSection.AddRow(CreateSettingsRow("Type", cmbFenceType));
             cmbFenceType.SelectedIndexChanged += (s, e) => { if (!isUpdatingControls) UpdateTypeSpecificVisibility(); };
 
-            var basicSection = Theme.CreateSection("Basic Settings", 500);
-
+            var basicSection = new SettingsSection("Basic Settings", 500);
             txtFenceName = Theme.CreateTextBox();
             txtFenceName.Width = 200;
-            basicSection.Controls.Add(CreateSettingsRow("Name", txtFenceName));
+            basicSection.AddRow(CreateSettingsRow("Name", txtFenceName));
+            basicSection.AddRow(CreateSettingsRow("Transparency (%)", nudFenceTransparency = Theme.CreateNumericUpDown(25, 100, 100)));
+            basicSection.AddRow(CreateSettingsRow("Auto Hide", chkFenceAutoHide = new ToggleSwitch()));
+            basicSection.AddRow(CreateSettingsRow("Auto Hide Delay (ms)", nudFenceAutoHideDelay = Theme.CreateNumericUpDown(500, 10000, 2000)));
+            basicSection.AddRow(CreateSettingsRow("Can Minify", chkFenceCanMinify = new ToggleSwitch { Checked = true }));
+            basicSection.AddRow(CreateSettingsRow("Locked", chkFenceLocked = new ToggleSwitch()));
 
-            nudFenceTransparency = Theme.CreateNumericUpDown(25, 100, 100);
-            nudFenceTransparency.Width = 100;
-            basicSection.Controls.Add(CreateSettingsRow("Transparency (%)", nudFenceTransparency));
+            var sizeSection = new SettingsSection("Size Settings", 500);
+            sizeSection.AddRow(CreateSettingsRow("Width", nudFenceWidth = Theme.CreateNumericUpDown(200, 2000, 524)));
+            sizeSection.AddRow(CreateSettingsRow("Height", nudFenceHeight = Theme.CreateNumericUpDown(200, 2000, 517)));
+            sizeSection.AddRow(CreateSettingsRow("Title Height", nudFenceTitleHeight = Theme.CreateNumericUpDown(16, 100, 25)));
 
-            chkFenceAutoHide = new ToggleSwitch();
-            basicSection.Controls.Add(CreateSettingsRow("Auto Hide", chkFenceAutoHide));
+            var colorsSection = new SettingsSection("Colors", 500);
+            colorsSection.AddRow(CreateColorRow("Background", out btnFenceBackgroundColor, out nudFenceBackgroundTransparency, 0));
+            colorsSection.AddRow(CreateColorRow("Title Background", out btnFenceTitleBackgroundColor, out nudFenceTitleBackgroundTransparency, 50));
+            colorsSection.AddRow(CreateColorRow("Text", out btnFenceTextColor, out nudFenceTextTransparency, 100));
+            colorsSection.AddRow(CreateColorRow("Border", out btnFenceBorderColor, out nudFenceBorderTransparency, 150));
 
-            nudFenceAutoHideDelay = Theme.CreateNumericUpDown(500, 10000, 2000);
-            nudFenceAutoHideDelay.Width = 100;
-            basicSection.Controls.Add(CreateSettingsRow("Auto Hide Delay (ms)", nudFenceAutoHideDelay));
+            var styleSection = new SettingsSection("Style", 500);
+            styleSection.AddRow(CreateSettingsRow("Item Spacing", nudFenceItemSpacing = Theme.CreateNumericUpDown(5, 50, 15)));
+            styleSection.AddRow(CreateSettingsRow("Icon Size", cmbFenceIconSize = Theme.CreateComboBox(new[] { "16", "24", "32", "48", "64" })));
+            styleSection.AddRow(CreateSettingsRow("Show Shadow", chkFenceShowShadow = new ToggleSwitch { Checked = true }));
+            styleSection.AddRow(CreateSettingsRow("Corner Radius", nudFenceCornerRadius = Theme.CreateNumericUpDown(0, 50, 0)));
+            styleSection.AddRow(CreateSettingsRow("Border Width", nudFenceBorderWidth = Theme.CreateNumericUpDown(0, 10, 0)));
 
-            chkFenceLocked = new ToggleSwitch();
-            chkFenceCanMinify = new ToggleSwitch { Checked = true };
-            basicSection.Controls.Add(CreateSettingsRow("Can Minify", chkFenceCanMinify));
-            basicSection.Controls.Add(CreateSettingsRow("Locked", chkFenceLocked));
-
-            var sizeSection = Theme.CreateSection("Size Settings", 500);
-
-            nudFenceWidth = Theme.CreateNumericUpDown(200, 2000, 524);
-            nudFenceWidth.Width = 100;
-            nudFenceHeight = Theme.CreateNumericUpDown(200, 2000, 517);
-            nudFenceHeight.Width = 100;
-            nudFenceTitleHeight = Theme.CreateNumericUpDown(16, 100, 25);
-            nudFenceTitleHeight.Width = 100;
-
-            sizeSection.Controls.Add(CreateSettingsRow("Title Height", nudFenceTitleHeight));
-            sizeSection.Controls.Add(CreateSettingsRow("Height", nudFenceHeight));
-            sizeSection.Controls.Add(CreateSettingsRow("Width", nudFenceWidth));
-
-            var colorsSection = Theme.CreateSection("Colors", 500);
-
-            (btnFenceBackgroundColor, nudFenceBackgroundTransparency) = CreateColorSettingsRow(colorsSection, "Background", 0);
-            (btnFenceTitleBackgroundColor, nudFenceTitleBackgroundTransparency) = CreateColorSettingsRow(colorsSection, "Title Background", 50);
-            (btnFenceTextColor, nudFenceTextTransparency) = CreateColorSettingsRow(colorsSection, "Text", 100);
-            (btnFenceBorderColor, nudFenceBorderTransparency) = CreateColorSettingsRow(colorsSection, "Border", 150);
-
-            var styleSection = Theme.CreateSection("Style", 500);
-
-            nudFenceBorderWidth = Theme.CreateNumericUpDown(0, 10, 0);
-            nudFenceBorderWidth.Width = 100;
-            nudFenceCornerRadius = Theme.CreateNumericUpDown(0, 50, 0);
-            nudFenceCornerRadius.Width = 100;
-            chkFenceShowShadow = new ToggleSwitch { Checked = true };
-            cmbFenceIconSize = Theme.CreateComboBox(new[] { "16", "24", "32", "48", "64" });
-            cmbFenceIconSize.Width = 100;
-            nudFenceItemSpacing = Theme.CreateNumericUpDown(5, 50, 15);
-            nudFenceItemSpacing.Width = 100;
-
-            styleSection.Controls.Add(CreateSettingsRow("Item Spacing", nudFenceItemSpacing));
-            styleSection.Controls.Add(CreateSettingsRow("Icon Size", cmbFenceIconSize));
-            styleSection.Controls.Add(CreateSettingsRow("Show Shadow", chkFenceShowShadow));
-            styleSection.Controls.Add(CreateSettingsRow("Corner Radius", nudFenceCornerRadius));
-            styleSection.Controls.Add(CreateSettingsRow("Border Width", nudFenceBorderWidth));
-
-            var actionPanel = new Panel
+            var actionCard = new CardPanel("Actions");
+            var actionFlow = new FlowLayoutPanel
             {
-                Height = 40,
+                FlowDirection = FlowDirection.LeftToRight,
+                Dock = DockStyle.Fill,
+                WrapContents = false,
                 BackColor = Color.Transparent,
-                Margin = new Padding(0, 0, 0, 8)
+                Padding = new Padding(0, 4, 0, 0)
             };
 
             btnResetToDefaults = Theme.CreateFlatButton("Reset to Defaults", Theme.ButtonRole.Danger);
-            btnResetToDefaults.Size = new Size(140, Theme.Sizes.ButtonHeight);
-            btnResetToDefaults.Location = new Point(0, 4);
+            btnResetToDefaults.Size = new Size(150, Theme.Sizes.ButtonHeight);
             btnResetToDefaults.Click += BtnResetToDefaults_Click;
 
             btnSetAsDefaults = Theme.CreateFlatButton("Set as Defaults");
-            btnSetAsDefaults.Size = new Size(140, Theme.Sizes.ButtonHeight);
-            btnSetAsDefaults.Location = new Point(150, 4);
+            btnSetAsDefaults.Size = new Size(150, Theme.Sizes.ButtonHeight);
             btnSetAsDefaults.Click += BtnSetAsDefaults_Click;
 
-            actionPanel.Controls.AddRange(new Control[] { btnResetToDefaults, btnSetAsDefaults });
+            actionFlow.Controls.AddRange(new Control[] { btnResetToDefaults, btnSetAsDefaults });
+            actionCard.Content.Controls.Add(actionFlow);
+            actionCard.Height = 34 + Theme.Sizes.ButtonHeight + 16;
 
-            fenceSettingsPanel.Controls.Add(actionPanel);
-            AddSection(fenceSettingsPanel, typeSection, 1);
-            AddSection(fenceSettingsPanel, basicSection, 6);
-            AddSection(fenceSettingsPanel, sizeSection, 3);
-            AddColorSection(fenceSettingsPanel, colorsSection, 4);
-            AddSection(fenceSettingsPanel, styleSection, 5);
+            fenceSettingsPanel.Controls.Add(actionCard);
+            fenceSettingsPanel.Controls.Add(typeSection);
+            fenceSettingsPanel.Controls.Add(basicSection);
+            fenceSettingsPanel.Controls.Add(sizeSection);
+            fenceSettingsPanel.Controls.Add(colorsSection);
+            fenceSettingsPanel.Controls.Add(styleSection);
 
             CreateTypeSpecificPanels();
         }
 
         private void CreateTypeSpecificPanels()
         {
-            liveFolderPanel = Theme.CreateSection("Live Folder Settings", 500);
+            liveFolderPanel = new SettingsSection("Live Folder Settings", 500);
+
+            var browseBtn = Theme.CreateFlatButton("Browse");
+            browseBtn.Size = new Size(76, Theme.Sizes.ButtonHeight);
+            browseBtn.Click += BtnBrowseWatchPath_Click;
+
+            var watchPathInput = new Panel { Height = Theme.Sizes.InputHeight + 2 };
             txtWatchPath = Theme.CreateTextBox();
-            txtWatchPath.Width = 300;
-            var btnBrowse = Theme.CreateFlatButton("Browse");
-            btnBrowse.Size = new Size(70, Theme.Sizes.ButtonHeight);
-            btnBrowse.Click += BtnBrowseWatchPath_Click;
+            txtWatchPath.Width = 220;
+            txtWatchPath.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+            browseBtn.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+            browseBtn.Location = new Point(228, (watchPathInput.Height - browseBtn.Height) / 2);
+            txtWatchPath.Location = new Point(0, (watchPathInput.Height - txtWatchPath.Height) / 2);
+            watchPathInput.Controls.Add(browseBtn);
+            watchPathInput.Controls.Add(txtWatchPath);
+            liveFolderPanel.AddRow(new SettingsRow("Watch Path", watchPathInput, "Folder whose contents appear live in the fence."));
 
-            var watchPathRow = new Panel
-            {
-                Height = 32,
-                Dock = DockStyle.Top,
-                BackColor = Color.Transparent,
-                Margin = new Padding(0, 2, 0, 2)
-            };
-            var watchPathLabel = Theme.CreateLabel("Watch Path");
-            watchPathLabel.Location = new Point(0, (32 - watchPathLabel.Height) / 2);
-            watchPathLabel.Width = 160;
-            txtWatchPath.Location = new Point(170, (32 - txtWatchPath.Height) / 2);
-            btnBrowse.Location = new Point(480, (32 - btnBrowse.Height) / 2);
-            watchPathRow.Controls.Add(btnBrowse);
-            watchPathRow.Controls.Add(txtWatchPath);
-            watchPathRow.Controls.Add(watchPathLabel);
-            liveFolderPanel.Controls.Add(watchPathRow);
-
-            chkWatchRecursive = new ToggleSwitch();
-            liveFolderPanel.Controls.Add(CreateSettingsRow("Recursive", chkWatchRecursive));
-
+            liveFolderPanel.AddRow(CreateSettingsRow("Recursive", chkWatchRecursive = new ToggleSwitch()));
             txtFileFilter = Theme.CreateTextBox();
             txtFileFilter.Width = 200;
-            liveFolderPanel.Controls.Add(CreateSettingsRow("File Filter", txtFileFilter));
+            liveFolderPanel.AddRow(CreateSettingsRow("File Filter", txtFileFilter));
+            liveFolderPanel.AddRow(CreateSettingsRow("Max Items", nudLiveFolderMaxItems = Theme.CreateNumericUpDown(1, 500, 50)));
 
-            nudLiveFolderMaxItems = Theme.CreateNumericUpDown(1, 500, 50);
-            nudLiveFolderMaxItems.Width = 100;
-            liveFolderPanel.Controls.Add(CreateSettingsRow("Max Items", nudLiveFolderMaxItems));
-
-            liveFolderPanel.Height = 28 + 4 * 36 + 12;
-            fenceSettingsPanel.Controls.Add(liveFolderPanel);
-
-            runningTasksPanel = Theme.CreateSection("Running Tasks Settings", 500);
-            nudUpdateInterval = Theme.CreateNumericUpDown(500, 30000, 3000);
-            nudUpdateInterval.Width = 100;
-            runningTasksPanel.Controls.Add(CreateSettingsRow("Update Interval (ms)", nudUpdateInterval));
-
-            chkShowMinimizedWindows = new ToggleSwitch { Checked = true };
-            runningTasksPanel.Controls.Add(CreateSettingsRow("Show Minimized", chkShowMinimizedWindows));
-
+            runningTasksPanel = new SettingsSection("Running Tasks Settings", 500);
+            runningTasksPanel.AddRow(CreateSettingsRow("Update Interval (ms)", nudUpdateInterval = Theme.CreateNumericUpDown(500, 30000, 3000)));
+            runningTasksPanel.AddRow(CreateSettingsRow("Show Minimized", chkShowMinimizedWindows = new ToggleSwitch { Checked = true }));
             txtProcessFilter = Theme.CreateTextBox();
             txtProcessFilter.Width = 200;
-            runningTasksPanel.Controls.Add(CreateSettingsRow("Process Filter", txtProcessFilter));
+            runningTasksPanel.AddRow(CreateSettingsRow("Process Filter", txtProcessFilter));
+            runningTasksPanel.AddRow(CreateSettingsRow("Max Items", nudRunningTasksMaxItems = Theme.CreateNumericUpDown(1, 100, 20)));
 
-            nudRunningTasksMaxItems = Theme.CreateNumericUpDown(1, 100, 20);
-            nudRunningTasksMaxItems.Width = 100;
-            runningTasksPanel.Controls.Add(CreateSettingsRow("Max Items", nudRunningTasksMaxItems));
+            clipboardHistoryPanel = new SettingsSection("Clipboard History Settings", 500);
+            clipboardHistoryPanel.AddRow(CreateSettingsRow("Max Items", nudClipboardMaxItems = Theme.CreateNumericUpDown(5, 200, 50)));
+            clipboardHistoryPanel.AddRow(CreateSettingsRow("Capture Images", chkCaptureImages = new ToggleSwitch { Checked = true }));
 
-            runningTasksPanel.Height = 28 + 4 * 36 + 12;
+            fenceSettingsPanel.Controls.Add(liveFolderPanel);
             fenceSettingsPanel.Controls.Add(runningTasksPanel);
-
-            clipboardHistoryPanel = Theme.CreateSection("Clipboard History Settings", 500);
-            nudClipboardMaxItems = Theme.CreateNumericUpDown(5, 200, 50);
-            nudClipboardMaxItems.Width = 100;
-            clipboardHistoryPanel.Controls.Add(CreateSettingsRow("Max Items", nudClipboardMaxItems));
-
-            chkCaptureImages = new ToggleSwitch { Checked = true };
-            clipboardHistoryPanel.Controls.Add(CreateSettingsRow("Capture Images", chkCaptureImages));
-
-            clipboardHistoryPanel.Height = 28 + 2 * 36 + 12;
             fenceSettingsPanel.Controls.Add(clipboardHistoryPanel);
         }
 
@@ -703,92 +604,116 @@ namespace Fenceless.UI
             liveFolderPanel.Visible = type == FenceType.LiveFolder;
             runningTasksPanel.Visible = type == FenceType.RunningTasks;
             clipboardHistoryPanel.Visible = type == FenceType.ClipboardHistory;
+
+            // Re-flow the host so hidden sections don't leave gaps.
+            fenceSettingsPanel.PerformLayout();
         }
 
         #endregion
 
         #region Helper Methods
 
-        private Panel CreateSettingsRow(string labelText, Control input)
+        private SettingsRow CreateSettingsRow(string labelText, Control input, string description = null)
         {
-            var row = new Panel
-            {
-                Height = 32,
-                Dock = DockStyle.Top,
-                BackColor = Color.Transparent,
-                Margin = new Padding(0, 2, 0, 2)
-            };
-
-            var label = Theme.CreateLabel(labelText);
-            label.AutoSize = true;
-            label.Location = new Point(0, (32 - label.Height) / 2);
-            label.Width = 160;
-
-            if (input is ToggleSwitch toggleSwitch)
-            {
-                input.Dock = DockStyle.Right;
-                input.Margin = new Padding(0, 5, 0, 5);
-            }
-            else
-            {
-                input.Location = new Point(170, (32 - input.Height) / 2);
-            }
-
-            row.Controls.Add(input);
-            row.Controls.Add(label);
-            return row;
+            return new SettingsRow(labelText, input, description);
         }
 
-        private HotkeyCaptureBox CreateHotkeyRow(Control parent, string labelText, int x, int y, int sectionWidth, int hotkeyWidth, int clearWidth)
+        private SettingsRow CreateHotkeyRow(string labelText, out HotkeyCaptureBox hotkeyBox)
         {
-            var label = Theme.CreateLabel(labelText);
-            label.Location = new Point(x, y + 4);
-            label.Width = 160;
+            hotkeyBox = new HotkeyCaptureBox();
+            var box = hotkeyBox;
 
-            var hotkeyBox = new HotkeyCaptureBox
-            {
-                Location = new Point(x + 170, y),
-                Width = hotkeyWidth
-            };
-
+            var input = new Panel { Height = Theme.Sizes.InputHeight + 4 };
             var btnClear = Theme.CreateFlatButton("Clear");
-            btnClear.Size = new Size(clearWidth, Theme.Sizes.ButtonHeight);
-            btnClear.Location = new Point(x + 170 + hotkeyWidth + 8, y);
-            btnClear.Click += (s, e) => hotkeyBox.Text = "";
+            btnClear.Size = new Size(64, Theme.Sizes.ButtonHeight);
 
-            parent.Controls.Add(btnClear);
-            parent.Controls.Add(hotkeyBox);
-            parent.Controls.Add(label);
+            hotkeyBox.Width = 200;
+            hotkeyBox.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+            btnClear.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+            btnClear.Location = new Point(208, (input.Height - btnClear.Height) / 2);
+            hotkeyBox.Location = new Point(0, (input.Height - hotkeyBox.Height) / 2);
+            btnClear.Click += (s, e) => box.Text = "";
 
-            return hotkeyBox;
+            input.Controls.Add(btnClear);
+            input.Controls.Add(hotkeyBox);
+            return new SettingsRow(labelText, input);
         }
 
-        private (Button colorButton, NumericUpDown transparency) CreateColorSettingsRow(Control parent, string labelText, int yOffset)
+        private SettingsRow CreateColorRow(string labelText, out Button colorButton, out NumericUpDown transparency, int defaultValue)
         {
-            int x = 12;
-            int y = yOffset + 28;
+            var input = new Panel { Height = Theme.Sizes.InputHeight + 4 };
+            var cpb = new ColorPickerButton();
+            cpb.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+            colorButton = cpb;
 
-            var label = Theme.CreateLabel(labelText);
-            label.Location = new Point(x, y + 4);
-            label.Width = 120;
+            var transLabel = Theme.CreateLabel("Opacity:", Theme.Fonts.Caption, Theme.Colors.TextSecondary);
+            transLabel.AutoSize = true;
+            transLabel.Anchor = AnchorStyles.Left | AnchorStyles.Top;
 
-            var colorButton = Theme.CreateColorSwatchButton();
-            colorButton.Location = new Point(x + 130, y);
+            var trans = Theme.CreateNumericUpDown(0, 100, 100);
+            trans.Width = 60;
+            trans.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+            transparency = trans;
 
-            var transLabel = Theme.CreateLabel("Opacity (%):", Theme.Fonts.Small, Theme.Colors.TextSecondary);
-            transLabel.Location = new Point(x + 260, y + 4);
-            transLabel.Width = 70;
+            cpb.AlphaSource = () => (int)trans.Value;
 
-            var transparency = Theme.CreateNumericUpDown(0, 100, 100);
-            transparency.Width = 60;
-            transparency.Location = new Point(x + 340, y);
+            int x = 0;
+            cpb.Location = new Point(x, (input.Height - cpb.Height) / 2);
+            x += cpb.Width + 10;
+            transLabel.Location = new Point(x, (input.Height - transLabel.Height) / 2);
+            x += transLabel.Width + 6;
+            trans.Location = new Point(x, (input.Height - trans.Height) / 2);
+            trans.ValueChanged += (s, e) => cpb.Invalidate();
 
-            parent.Controls.Add(transparency);
-            parent.Controls.Add(transLabel);
-            parent.Controls.Add(colorButton);
-            parent.Controls.Add(label);
+            input.Controls.Add(trans);
+            input.Controls.Add(transLabel);
+            input.Controls.Add(cpb);
+            return new SettingsRow(labelText, input);
+        }
 
-            return (colorButton, transparency);
+        private void WireAppearancePreview()
+        {
+            if (_appearancePreview == null) return;
+            _appearancePreview.GetState = BuildPreviewState;
+
+            EventHandler invalidate = (s, e) => _appearancePreview?.Invalidate();
+            nudDefaultFenceWidth.ValueChanged += invalidate;
+            nudDefaultFenceHeight.ValueChanged += invalidate;
+            nudDefaultTitleHeight.ValueChanged += invalidate;
+            nudDefaultTransparency.ValueChanged += invalidate;
+            chkDefaultAutoHide.CheckedChanged += invalidate;
+            nudDefaultBackgroundTransparency.ValueChanged += invalidate;
+            nudDefaultTitleBackgroundTransparency.ValueChanged += invalidate;
+            nudDefaultTextTransparency.ValueChanged += invalidate;
+            nudDefaultBorderTransparency.ValueChanged += invalidate;
+            nudDefaultBorderWidth.ValueChanged += invalidate;
+            nudDefaultCornerRadius.ValueChanged += invalidate;
+            chkDefaultShowShadow.CheckedChanged += invalidate;
+            cmbDefaultIconSize.SelectedIndexChanged += invalidate;
+            nudDefaultItemSpacing.ValueChanged += invalidate;
+        }
+
+        private FencePreviewControl.PreviewState BuildPreviewState()
+        {
+            return new FencePreviewControl.PreviewState
+            {
+                Background = WithAlpha(btnDefaultBackgroundColor.BackColor, nudDefaultBackgroundTransparency.Value),
+                TitleBackground = WithAlpha(btnDefaultTitleBackgroundColor.BackColor, nudDefaultTitleBackgroundTransparency.Value),
+                Text = WithAlpha(btnDefaultTextColor.BackColor, nudDefaultTextTransparency.Value),
+                Border = WithAlpha(btnDefaultBorderColor.BackColor, nudDefaultBorderTransparency.Value),
+                BorderWidth = (float)nudDefaultBorderWidth.Value,
+                CornerRadius = (int)nudDefaultCornerRadius.Value,
+                ShowShadow = chkDefaultShowShadow.Checked,
+                IconSize = int.TryParse(cmbDefaultIconSize.SelectedItem?.ToString(), out var s) ? s : 16,
+                ItemSpacing = (int)nudDefaultItemSpacing.Value,
+                Title = "Preview Fence"
+            };
+        }
+
+        private static Color WithAlpha(Color c, decimal transparencyPct)
+        {
+            int a = (int)Math.Round(255m * (Math.Max(0m, Math.Min(100m, transparencyPct)) / 100m));
+            return Color.FromArgb(a, c.R, c.G, c.B);
         }
 
         #endregion
@@ -797,6 +722,7 @@ namespace Fenceless.UI
 
         private void DebounceGlobalSettingsSave()
         {
+            _saveIndicator?.SetPending();
             _globalSettingsDebounce?.Dispose();
             _globalSettingsDebounce = new System.Threading.Timer(_ =>
             {
@@ -806,6 +732,7 @@ namespace Fenceless.UI
 
         private void DebounceFenceSettingsSave()
         {
+            _saveIndicator?.SetPending();
             _fenceSettingsDebounce?.Dispose();
             _fenceSettingsDebounce = new System.Threading.Timer(_ =>
             {
@@ -848,15 +775,15 @@ namespace Fenceless.UI
             cmbDefaultIconSize.SelectedIndexChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
             nudDefaultItemSpacing.ValueChanged += (s, e) => { if (!isUpdatingControls) DebounceGlobalSettingsSave(); };
 
-            btnDefaultBackgroundColor.Click += (s, e) => ShowColorDialog(btnDefaultBackgroundColor, "DefaultBackgroundColor");
-            btnDefaultTitleBackgroundColor.Click += (s, e) => ShowColorDialog(btnDefaultTitleBackgroundColor, "DefaultTitleBackgroundColor");
-            btnDefaultTextColor.Click += (s, e) => ShowColorDialog(btnDefaultTextColor, "DefaultTextColor");
-            btnDefaultBorderColor.Click += (s, e) => ShowColorDialog(btnDefaultBorderColor, "DefaultBorderColor");
+            btnDefaultBackgroundColor.Click += (s, e) => ShowColorDialog(btnDefaultBackgroundColor, nudDefaultBackgroundTransparency, false);
+            btnDefaultTitleBackgroundColor.Click += (s, e) => ShowColorDialog(btnDefaultTitleBackgroundColor, nudDefaultTitleBackgroundTransparency, false);
+            btnDefaultTextColor.Click += (s, e) => ShowColorDialog(btnDefaultTextColor, nudDefaultTextTransparency, false);
+            btnDefaultBorderColor.Click += (s, e) => ShowColorDialog(btnDefaultBorderColor, nudDefaultBorderTransparency, false);
 
-            btnFenceBackgroundColor.Click += (s, e) => ShowColorDialog(btnFenceBackgroundColor, "BackgroundColor", true);
-            btnFenceTitleBackgroundColor.Click += (s, e) => ShowColorDialog(btnFenceTitleBackgroundColor, "TitleBackgroundColor", true);
-            btnFenceTextColor.Click += (s, e) => ShowColorDialog(btnFenceTextColor, "TextColor", true);
-            btnFenceBorderColor.Click += (s, e) => ShowColorDialog(btnFenceBorderColor, "BorderColor", true);
+            btnFenceBackgroundColor.Click += (s, e) => ShowColorDialog(btnFenceBackgroundColor, nudFenceBackgroundTransparency, true);
+            btnFenceTitleBackgroundColor.Click += (s, e) => ShowColorDialog(btnFenceTitleBackgroundColor, nudFenceTitleBackgroundTransparency, true);
+            btnFenceTextColor.Click += (s, e) => ShowColorDialog(btnFenceTextColor, nudFenceTextTransparency, true);
+            btnFenceBorderColor.Click += (s, e) => ShowColorDialog(btnFenceBorderColor, nudFenceBorderTransparency, true);
 
             lstFences.DrawItem += LstFences_DrawItem;
             lstFences.SelectedIndexChanged += LstFences_SelectedIndexChanged;
@@ -1056,15 +983,26 @@ namespace Fenceless.UI
             }
         }
 
-        private void ShowColorDialog(Button button, string propertyName, bool isFenceProperty = false)
+        private void ShowColorDialog(Button button, NumericUpDown alphaControl, bool isFenceProperty)
         {
-            using (var colorDialog = new ColorDialog())
-            {
-                colorDialog.FullOpen = true;
+            int initialAlpha = (int)(alphaControl?.Value ?? 100);
+            Color initialColor = button.BackColor;
 
-                if (colorDialog.ShowDialog(this) == DialogResult.OK)
+            using (var dialog = new ColorPickerDialog(initialColor, initialAlpha))
+            {
+                if (dialog.ShowDialog(this) == DialogResult.OK)
                 {
-                    SetColorButton(button, colorDialog.Color.ToArgb());
+                    SetColorButton(button, dialog.SelectedColor.ToArgb());
+                    if (alphaControl != null)
+                    {
+                        if (isUpdatingControls == false)
+                        {
+                            try { alphaControl.Value = dialog.SelectedAlphaPercent; }
+                            catch { }
+                        }
+                    }
+                    button.Invalidate();
+                    if (!isFenceProperty) _appearancePreview?.Invalidate();
 
                     if (isFenceProperty)
                     {
@@ -1081,7 +1019,8 @@ namespace Fenceless.UI
         private void SetColorButton(Button button, int argbColor)
         {
             var color = Color.FromArgb(argbColor);
-            Theme.UpdateColorSwatch(button, color);
+            button.BackColor = color;
+            if (button is ColorPickerButton cpb) cpb.Invalidate();
         }
 
         private void ApplyGlobalSettings()
@@ -1168,10 +1107,12 @@ namespace Fenceless.UI
                 settings.SaveSettings();
 
                 logger.Info("Global settings applied successfully", "SettingsForm");
+                _saveIndicator?.SetSaved();
             }
             catch (Exception ex)
             {
                 logger.Error("Failed to apply global settings", "SettingsForm", ex);
+                _saveIndicator?.SetError();
                 CustomMessageBox.Show($"Failed to apply settings: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -1233,10 +1174,12 @@ namespace Fenceless.UI
                 FenceManager.Instance.ApplySettingsToFence(selectedFenceInfo);
 
                 logger.Info($"Applied settings to fence '{selectedFenceInfo.Name}'", "SettingsForm");
+                _saveIndicator?.SetSaved();
             }
             catch (Exception ex)
             {
                 logger.Error($"Failed to apply fence settings for '{selectedFenceInfo?.Name}'", "SettingsForm", ex);
+                _saveIndicator?.SetError();
             }
         }
 
@@ -1481,26 +1424,51 @@ namespace Fenceless.UI
 
             var listBox = (ListBox)sender;
             var fence = (FenceInfo)listBox.Items[e.Index];
+            var g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-            Color backgroundColor = (e.State & DrawItemState.Selected) != 0
-                ? Theme.Colors.SurfaceSelected
-                : Theme.Colors.InputBackground;
+            bool selected = (e.State & DrawItemState.Selected) != 0;
+            Color backgroundColor = selected ? Theme.Colors.SurfaceSelected : Theme.Colors.InputBackground;
 
             using (var backgroundBrush = new SolidBrush(backgroundColor))
+                g.FillRectangle(backgroundBrush, e.Bounds);
+
+            if (selected)
             {
-                e.Graphics.FillRectangle(backgroundBrush, e.Bounds);
+                using (var accentBrush = new SolidBrush(Theme.Colors.Accent))
+                    g.FillRectangle(accentBrush, new Rectangle(e.Bounds.X, e.Bounds.Y, 3, e.Bounds.Height));
             }
 
-            var typeNames = new[] { "", "\u25CF ", "\u25B6 ", "\u2630 " };
-            var typeLabel = fence.FenceType != FenceType.Standard && (int)fence.FenceType < typeNames.Length
-                ? typeNames[(int)fence.FenceType]
-                : "";
-
-            using (var textBrush = new SolidBrush(Theme.Colors.TextPrimary))
+            var typeStyle = GetTypeStyle(fence.FenceType);
+            int iconX = e.Bounds.X + 10;
+            int iconY = e.Bounds.Y + (e.Bounds.Height - 16) / 2;
+            if (!string.IsNullOrEmpty(typeStyle.glyph))
             {
-                e.Graphics.DrawString($"{typeLabel}{fence.Name}", Theme.Fonts.Body, textBrush,
-                    new Rectangle(e.Bounds.X + 8, e.Bounds.Y, e.Bounds.Width - 16, e.Bounds.Height),
-                    StringFormat.GenericDefault);
+                using (var iconFont = new Font(Theme.IconFontName, 10F))
+                {
+                    TextRenderer.DrawText(g, typeStyle.glyph, iconFont,
+                        new Rectangle(iconX, iconY, 18, 18), typeStyle.color,
+                        TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+                }
+            }
+
+            using (var textBrush = new SolidBrush(selected ? Theme.Colors.TextBright : Theme.Colors.TextPrimary))
+            {
+                var nameRect = new Rectangle(e.Bounds.X + 34, e.Bounds.Y, e.Bounds.Width - 42, e.Bounds.Height);
+                TextRenderer.DrawText(g, fence.Name, Theme.Fonts.Body, nameRect,
+                    selected ? Theme.Colors.TextBright : Theme.Colors.TextPrimary,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            }
+        }
+
+        private (string glyph, Color color) GetTypeStyle(FenceType type)
+        {
+            switch (type)
+            {
+                case FenceType.LiveFolder: return ("\uE8B7", Theme.Colors.Warning);
+                case FenceType.RunningTasks: return ("\uE7A8", Theme.Colors.Accent);
+                case FenceType.ClipboardHistory: return ("\uE77F", Theme.Colors.Success);
+                default: return ("\uE8FD", Theme.Colors.TextSecondary);
             }
         }
 

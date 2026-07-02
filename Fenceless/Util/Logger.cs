@@ -220,6 +220,36 @@ namespace Fenceless.Util
             FlushWriter();
         }
 
+        /// <summary>
+        /// Safely truncate the log file while the application is running.
+        /// Disposes the active writer (opened in Append mode, which can't be
+        /// resized), truncates the file on disk, and lets the next write
+        /// reopen the stream fresh.
+        /// </summary>
+        public void ClearLogFile()
+        {
+            try
+            {
+                lock (_disposeLock)
+                {
+                    if (_disposed) return;
+                    _streamWriter?.Flush();
+                    _streamWriter?.Dispose();
+                    _streamWriter = null;
+                }
+
+                if (File.Exists(_logFilePath))
+                {
+                    using (var fs = new FileStream(_logFilePath, FileMode.Truncate, FileAccess.Write, FileShare.ReadWrite))
+                    {
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
+
         public void Dispose()
         {
             lock (_disposeLock)

@@ -1,6 +1,9 @@
 using System;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
+using Fenceless.Properties;
+using Fenceless.Win32;
 
 namespace Fenceless.UI
 {
@@ -9,6 +12,7 @@ namespace Fenceless.UI
         private CustomTitleBar titleBar;
         private Panel bottomBorder;
         private bool chromeAdded;
+        private bool _desiredTopMost = true;
 
         protected CustomTitleBar TitleBar => titleBar;
 
@@ -16,16 +20,26 @@ namespace Fenceless.UI
         {
         }
 
-        protected void SetupThemedForm(string title, bool showMinimize = true, bool showMaximize = true, bool sizable = true)
+        protected void SetupThemedForm(string title, bool showMinimize = true, bool showMaximize = true, bool sizable = true, bool topMost = true, bool showInTaskbar = false)
         {
+            _desiredTopMost = topMost;
+
             this.FormBorderStyle = FormBorderStyle.None;
             this.ControlBox = false;
             this.MaximizeBox = showMaximize;
             this.MinimizeBox = showMinimize;
-            this.ShowInTaskbar = false;
+            this.ShowInTaskbar = showInTaskbar;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = Theme.Colors.BackgroundMid;
             this.Font = Theme.Fonts.Body;
+            this.TopMost = topMost;
+
+            try
+            {
+                using (var ms = new MemoryStream(Resources.AppIconIco))
+                    this.Icon = new Icon(ms);
+            }
+            catch { }
 
             titleBar = new CustomTitleBar(this, title, showMinimize, showMaximize);
 
@@ -44,6 +58,30 @@ namespace Fenceless.UI
                 this.Controls.Add(titleBar);
                 this.Controls.Add(bottomBorder);
                 chromeAdded = true;
+            }
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            // Opaque backdrop (mica: false) — Mica would render the desktop
+            // wallpaper layer (which includes fence windows glued to WorkerW)
+            // through the translucent client area, causing widget repaints to
+            // flicker through the dialog. Dark title bar + rounded corners
+            // are still applied.
+            try { WindowUtil.ApplyFluentBackdrop(this.Handle, true, false); } catch { }
+        }
+
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            // Re-assert TopMost after show: changing ShowInTaskbar / the form
+            // being presented can recreate the HWND and drop the topmost flag,
+            // letting other windows push the dialog to the back.
+            if (_desiredTopMost)
+            {
+                this.TopMost = false;
+                this.TopMost = true;
             }
         }
 

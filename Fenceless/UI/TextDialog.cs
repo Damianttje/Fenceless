@@ -29,37 +29,55 @@ namespace Fenceless.UI
 
         private void CreateControls(string title, string prompt, string defaultValue)
         {
+            this.Size = new Size(440, 210);
+
             var contentPanel = new Panel
             {
                 Dock = DockStyle.Fill,
                 BackColor = Theme.Colors.BackgroundMid,
-                Padding = new Padding(20, 12, 20, 0)
+                Padding = new Padding(24, 16, 24, 8)
+            };
+
+            var stack = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoScroll = false,
+                BackColor = Color.Transparent
+            };
+            stack.Resize += (s, e) =>
+            {
+                foreach (Control c in stack.Controls) c.Width = stack.ClientSize.Width - stack.Padding.Horizontal;
             };
 
             var titleLabel = Theme.CreateLabel(title, Theme.Fonts.Header, Theme.Colors.TextBright);
-            titleLabel.Location = new Point(0, 0);
-            titleLabel.AutoSize = true;
+            titleLabel.AutoSize = false;
+            titleLabel.Height = 26;
+            titleLabel.Margin = new Padding(0, 0, 0, 2);
 
-            var promptLabel = Theme.CreateLabel(prompt);
-            promptLabel.Location = new Point(0, 36);
-            promptLabel.AutoSize = true;
+            var promptLabel = Theme.CreateLabel(prompt, Theme.Fonts.Body, Theme.Colors.TextSecondary);
+            promptLabel.AutoSize = false;
+            promptLabel.Height = 18;
+            promptLabel.Margin = new Padding(0, 0, 0, 8);
 
             inputTextBox = Theme.CreateTextBox();
             inputTextBox.Text = defaultValue;
-            inputTextBox.Location = new Point(0, 60);
-            inputTextBox.Width = contentPanel.Width - 40;
-            inputTextBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            inputTextBox.Height = Theme.Sizes.InputHeight + 2;
+            inputTextBox.Margin = new Padding(0, 0, 0, 0);
 
-            contentPanel.Controls.Add(inputTextBox);
-            contentPanel.Controls.Add(promptLabel);
-            contentPanel.Controls.Add(titleLabel);
+            stack.Controls.Add(titleLabel);
+            stack.Controls.Add(promptLabel);
+            stack.Controls.Add(inputTextBox);
+
+            contentPanel.Controls.Add(stack);
 
             var footerPanel = new Panel
             {
-                Height = 48,
+                Height = 52,
                 Dock = DockStyle.Bottom,
                 BackColor = Theme.Colors.BackgroundDark,
-                Padding = new Padding(0, 0, 12, 0)
+                Padding = new Padding(16, 8, 12, 8)
             };
 
             okButton = Theme.CreateFlatButton("OK", Theme.ButtonRole.Accent);
@@ -75,7 +93,7 @@ namespace Fenceless.UI
                 FlowDirection = FlowDirection.RightToLeft,
                 Dock = DockStyle.Fill,
                 BackColor = Color.Transparent,
-                Padding = new Padding(0, 8, 0, 0),
+                Padding = new Padding(0, 0, 0, 0),
                 WrapContents = false
             };
             buttonFlow.Controls.Add(btnCancel);
