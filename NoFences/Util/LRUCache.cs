@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using Fenceless.Win32;
 
 namespace Fenceless.Util
 {
@@ -216,13 +217,24 @@ namespace Fenceless.Util
         {
             try
             {
+                if (System.IO.Directory.Exists(filePath))
+                {
+                    using (var folderBitmap = IconUtil.FolderLarge.ToBitmap())
+                    {
+                        return new Bitmap(folderBitmap, new Size(size, size));
+                    }
+                }
+
                 if (System.IO.File.Exists(filePath))
                 {
                     using (var originalIcon = Icon.ExtractAssociatedIcon(filePath))
                     {
                         if (originalIcon != null)
                         {
-                            return new Bitmap(originalIcon.ToBitmap(), new Size(size, size));
+                            using (var iconBitmap = originalIcon.ToBitmap())
+                            {
+                                return new Bitmap(iconBitmap, new Size(size, size));
+                            }
                         }
                     }
                 }
@@ -235,9 +247,9 @@ namespace Fenceless.Util
             // Return default icon if extraction fails
             try
             {
-                using (var defaultIcon = SystemIcons.Application)
+                using (var defaultBitmap = SystemIcons.Application.ToBitmap())
                 {
-                    return new Bitmap(defaultIcon.ToBitmap(), new Size(size, size));
+                    return new Bitmap(defaultBitmap, new Size(size, size));
                 }
             }
             catch

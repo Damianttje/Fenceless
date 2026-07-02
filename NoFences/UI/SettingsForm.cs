@@ -1044,7 +1044,7 @@ namespace Fenceless.UI
                 nudRunningTasksMaxItems.Value = selectedFenceInfo.MaxItems > 0 ? selectedFenceInfo.MaxItems : 20;
 
                 nudClipboardMaxItems.Value = selectedFenceInfo.MaxItems > 0 ? selectedFenceInfo.MaxItems : 50;
-                chkCaptureImages.Checked = selectedFenceInfo.CaptureImages;
+                chkCaptureImages.Checked = selectedFenceInfo.CaptureImages && selectedFenceInfo.ShowPreviews;
             }
             catch (Exception ex)
             {
@@ -1215,13 +1215,19 @@ namespace Fenceless.UI
                 selectedFenceInfo.WatchPath = txtWatchPath.Text;
                 selectedFenceInfo.WatchRecursive = chkWatchRecursive.Checked;
                 selectedFenceInfo.FileFilter = txtFileFilter.Text;
-                selectedFenceInfo.MaxItems = (int)nudLiveFolderMaxItems.Value;
 
                 selectedFenceInfo.UpdateInterval = (int)nudUpdateInterval.Value;
                 selectedFenceInfo.ShowMinimizedWindows = chkShowMinimizedWindows.Checked;
                 selectedFenceInfo.ProcessFilter = txtProcessFilter.Text;
 
                 selectedFenceInfo.CaptureImages = chkCaptureImages.Checked;
+                selectedFenceInfo.ShowPreviews = chkCaptureImages.Checked;
+                selectedFenceInfo.MaxItems = selectedFenceInfo.FenceType switch
+                {
+                    FenceType.RunningTasks => (int)nudRunningTasksMaxItems.Value,
+                    FenceType.ClipboardHistory => (int)nudClipboardMaxItems.Value,
+                    _ => (int)nudLiveFolderMaxItems.Value
+                };
 
                 FenceManager.Instance.UpdateFence(selectedFenceInfo);
                 FenceManager.Instance.ApplySettingsToFence(selectedFenceInfo);

@@ -83,9 +83,17 @@ namespace Fenceless.Util
                             {
                                 var thumb = (Bitmap)img.GetThumbnailImage(32, 32, () => false, IntPtr.Zero);
                                 var hIcon = thumb.GetHicon();
-                                var icon = Icon.FromHandle(hIcon);
-                                state.icon = icon;
-                                DestroyIcon(hIcon);
+                                try
+                                {
+                                    using (var icon = Icon.FromHandle(hIcon))
+                                    {
+                                        state.icon = (Icon)icon.Clone();
+                                    }
+                                }
+                                finally
+                                {
+                                    DestroyIcon(hIcon);
+                                }
                                 IconThumbnailLoaded?.Invoke(this, new EventArgs());
                             }
                         }

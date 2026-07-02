@@ -158,6 +158,12 @@ namespace Fenceless.Model
 
         public bool CaptureImages { get; set; } = true;
 
+        public string WidgetDisplayMode { get; set; } = "Auto";
+
+        public int WidgetDensity { get; set; } = 0;
+
+        public bool ShowPreviews { get; set; } = true;
+
         public FenceInfo()
         {
 

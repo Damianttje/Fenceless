@@ -1,8 +1,10 @@
 using Fenceless.Model;
+using Fenceless.UI.Widgets;
 using Fenceless.Util;
 using System;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace Fenceless
@@ -13,11 +15,8 @@ namespace Fenceless
         {
             try
             {
-                var icon = entry.ExtractIcon(thumbnailProvider);
                 var name = entry.Name;
 
-                // Get or create cached scaled bitmap
-                var cacheKey = $"{entry.Path}_{iconSize}";
                 var iconBitmap = iconCache.GetIcon(entry.Path, iconSize);
                 
                 if (iconBitmap == null) return; // Safety check
@@ -25,98 +24,99 @@ namespace Fenceless
                 var textPosition = new PointF(x, y + iconBitmap.Height + 5);
                 var textMaxSize = new SizeF(itemWidth, textHeight);
 
-                var stringFormat = new StringFormat { Alignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
-
-                var textSize = g.MeasureString(name, iconFont, textMaxSize, stringFormat);
-                var outlineRect = new Rectangle(x - 2, y - 2, itemWidth + 2, iconBitmap.Height + (int)textSize.Height + 5 + 2);
-                var outlineRectInner = outlineRect.Shrink(1);
-
-                var mousePos = PointToClient(MousePosition);
-                var mouseOver = !isDraggingItem && mousePos.X >= x && mousePos.Y >= y && mousePos.X < x + outlineRect.Width && mousePos.Y < y + outlineRect.Height;
-
-                var isBeingDragged = isDraggingItem && draggingItem == entry.Path;
-
-                if (mouseOver && !isBeingDragged)
+                using (var stringFormat = new StringFormat { Alignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter })
                 {
-                    hoveringItem = entry.Path;
-                    hasHoverUpdated = true;
-                }
+                    var textSize = g.MeasureString(name, iconFont, textMaxSize, stringFormat);
+                    var outlineRect = new Rectangle(x - 2, y - 2, itemWidth + 2, iconBitmap.Height + (int)textSize.Height + 5 + 2);
+                    var outlineRectInner = outlineRect.Shrink(1);
 
-                if (mouseOver && shouldUpdateSelection && !isBeingDragged)
-                {
-                    selectedItem = entry.Path;
-                    shouldUpdateSelection = false;
-                    hasSelectionUpdated = true;
-                }
+                    var mousePos = PointToClient(MousePosition);
+                    var mouseOver = !isDraggingItem && mousePos.X >= x && mousePos.Y >= y && mousePos.X < x + outlineRect.Width && mousePos.Y < y + outlineRect.Height;
 
-                if (mouseOver && shouldRunDoubleClick && !isDraggingItem)
-                {
-                    shouldRunDoubleClick = false;
-                    entry.Open();
-                }
+                    var isBeingDragged = isDraggingItem && draggingItem == entry.Path;
 
-                float opacity = isBeingDragged ? 0.3f : 1.0f;
-                
-                if ((selectedItem == entry.Path || selectedItems.Contains(entry.Path)) && !isBeingDragged)
-                {
-                    if (mouseOver)
+                    if (mouseOver && !isBeingDragged)
                     {
-                        var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(180, SystemColors.ActiveBorder), 2);
-                        var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(120, SystemColors.GradientActiveCaption));
-                        g.DrawRectangle(pen, outlineRectInner);
-                        g.FillRectangle(brush, outlineRect);
+                        hoveringItem = entry.Path;
+                        hasHoverUpdated = true;
+                    }
+
+                    if (mouseOver && shouldUpdateSelection && !isBeingDragged)
+                    {
+                        selectedItem = entry.Path;
+                        shouldUpdateSelection = false;
+                        hasSelectionUpdated = true;
+                    }
+
+                    if (mouseOver && shouldRunDoubleClick && !isDraggingItem)
+                    {
+                        shouldRunDoubleClick = false;
+                        entry.Open();
+                    }
+
+                    float opacity = isBeingDragged ? 0.3f : 1.0f;
+                
+                    if ((selectedItem == entry.Path || selectedItems.Contains(entry.Path)) && !isBeingDragged)
+                    {
+                        if (mouseOver)
+                        {
+                            var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(180, SystemColors.ActiveBorder), 2);
+                            var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(120, SystemColors.GradientActiveCaption));
+                            g.DrawRectangle(pen, outlineRectInner);
+                            g.FillRectangle(brush, outlineRect);
+                        }
+                        else
+                        {
+                            var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(150, SystemColors.ActiveBorder), 2);
+                            var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(100, SystemColors.GradientInactiveCaption));
+                            g.DrawRectangle(pen, outlineRectInner);
+                            g.FillRectangle(brush, outlineRect);
+                        }
+                    }
+                    else if (!isBeingDragged)
+                    {
+                        if (mouseOver)
+                        {
+                            var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(120, SystemColors.ActiveBorder), 1);
+                            var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(80, SystemColors.ActiveCaption));
+                            g.DrawRectangle(pen, outlineRectInner);
+                            g.FillRectangle(brush, outlineRect);
+                        }
+                    }
+
+                    // Draw icon centered with optional transparency
+                    var iconRect = new Rectangle(x + itemWidth / 2 - iconBitmap.Width / 2, y, iconBitmap.Width, iconBitmap.Height);
+                
+                    if (isBeingDragged)
+                    {
+                        // Use simple alpha blending for dragged items
+                        using (var imageAttributes = new System.Drawing.Imaging.ImageAttributes())
+                        {
+                            var colorMatrix = new System.Drawing.Imaging.ColorMatrix();
+                            colorMatrix.Matrix33 = opacity; // Alpha channel
+                            imageAttributes.SetColorMatrix(colorMatrix);
+                            g.DrawImage(iconBitmap, iconRect, 0, 0, iconBitmap.Width, iconBitmap.Height, GraphicsUnit.Pixel, imageAttributes);
+                        }
                     }
                     else
                     {
-                        var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(150, SystemColors.ActiveBorder), 2);
-                        var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(100, SystemColors.GradientInactiveCaption));
-                        g.DrawRectangle(pen, outlineRectInner);
-                        g.FillRectangle(brush, outlineRect);
+                        g.DrawImage(iconBitmap, iconRect);
                     }
-                }
-                else if (!isBeingDragged)
-                {
-                    if (mouseOver)
-                    {
-                        var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(120, SystemColors.ActiveBorder), 1);
-                        var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(80, SystemColors.ActiveCaption));
-                        g.DrawRectangle(pen, outlineRectInner);
-                        g.FillRectangle(brush, outlineRect);
-                    }
-                }
-
-                // Draw icon centered with optional transparency
-                var iconRect = new Rectangle(x + itemWidth / 2 - iconBitmap.Width / 2, y, iconBitmap.Width, iconBitmap.Height);
                 
-                if (isBeingDragged)
-                {
-                    // Use simple alpha blending for dragged items
-                    using (var imageAttributes = new System.Drawing.Imaging.ImageAttributes())
-                    {
-                        var colorMatrix = new System.Drawing.Imaging.ColorMatrix();
-                        colorMatrix.Matrix33 = opacity; // Alpha channel
-                        imageAttributes.SetColorMatrix(colorMatrix);
-                        g.DrawImage(iconBitmap, iconRect, 0, 0, iconBitmap.Width, iconBitmap.Height, GraphicsUnit.Pixel, imageAttributes);
-                    }
-                }
-                else
-                {
-                    g.DrawImage(iconBitmap, iconRect);
-                }
-                
-                // Draw text with shadow if enabled
-                var textColorWithOpacity = isBeingDragged ? 
-                    Color.FromArgb((int)(textColor.A * opacity), textColor.R, textColor.G, textColor.B) : textColor;
+                    // Draw text with shadow if enabled
+                    var textColorWithOpacity = isBeingDragged ?
+                        Color.FromArgb((int)(textColor.A * opacity), textColor.R, textColor.G, textColor.B) : textColor;
                     
-                if (fenceInfo.ShowShadow && !isBeingDragged)
-                {
-                    var shadowBrush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(180, 15, 15, 15));
-                    g.DrawString(name, iconFont, shadowBrush, 
-                        new RectangleF(textPosition.Move(shadowDist, shadowDist), textMaxSize), stringFormat);
-                }
+                    if (fenceInfo.ShowShadow && !isBeingDragged)
+                    {
+                        var shadowBrush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(180, 15, 15, 15));
+                        g.DrawString(name, iconFont, shadowBrush,
+                            new RectangleF(textPosition.Move(shadowDist, shadowDist), textMaxSize), stringFormat);
+                    }
                 
-                var textBrush = GraphicsOptimizer.GetCachedBrush(textColorWithOpacity);
-                g.DrawString(name, iconFont, textBrush, new RectangleF(textPosition, textMaxSize), stringFormat);
+                    var textBrush = GraphicsOptimizer.GetCachedBrush(textColorWithOpacity);
+                    g.DrawString(name, iconFont, textBrush, new RectangleF(textPosition, textMaxSize), stringFormat);
+                }
             }
             catch (Exception ex)
             {
@@ -132,7 +132,6 @@ namespace Fenceless
         {
             try
             {
-                e.Graphics.Clip = new Region(ClientRectangle);
                 e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
@@ -171,8 +170,10 @@ namespace Fenceless
                 }
 
                 var textBrush = GraphicsOptimizer.GetCachedBrush(textColor);
-                e.Graphics.DrawString(Text, titleFont, textBrush, new PointF(Width / 2, titleOffset), 
-                    new StringFormat { Alignment = StringAlignment.Center });
+                using (var titleFormat = new StringFormat { Alignment = StringAlignment.Center })
+                {
+                    e.Graphics.DrawString(Text, titleFont, textBrush, new PointF(Width / 2, titleOffset), titleFormat);
+                }
 
                 if (isSearchActive && searchBox != null)
                 {
@@ -201,60 +202,62 @@ namespace Fenceless
                     }
                 }
 
-                // Items
-                var layout = FenceGridLayout.Calculate(Width, titleHeight, fenceInfo.ItemSpacing, fenceInfo.IconSize, itemWidth, textHeight);
-                
-                var x = layout.ItemSpacing;
-                var y = layout.ItemSpacing;
-                scrollHeight = 0;
-                e.Graphics.Clip = new Region(new Rectangle(0, titleHeight, Width, Height - titleHeight));
-                
-                var filesToRender = GetFilteredFiles();
-                
-                foreach (var file in filesToRender)
+                if (UsesWidgetRenderer())
                 {
-                    try
-                    {
-                        if (file.StartsWith("task:") || file.StartsWith("clip:"))
-                        {
-                            RenderVirtualEntry(e.Graphics, file, x, y + titleHeight - scrollOffset, layout.ActualItemWidth, layout.ActualItemHeight, fenceInfo.IconSize, textColor);
-                        }
-                        else
-                        {
-                            var entry = FenceEntry.FromPath(file);
-                            if (entry == null)
-                                continue;
-
-                            RenderEntry(e.Graphics, entry, x, y + titleHeight - scrollOffset, layout.ActualItemWidth, layout.ActualItemHeight, fenceInfo.IconSize, textColor);
-                        }
-
-                        var itemBottom = y + layout.ActualItemHeight;
-                        if (itemBottom > scrollHeight)
-                            scrollHeight = itemBottom;
-
-                        x += layout.ActualItemWidth + layout.ItemSpacing;
-                        if (x + layout.ActualItemWidth > Width)
-                        {
-                            x = layout.ItemSpacing;
-                            y += layout.ActualItemHeight + layout.ItemSpacing;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Error($"Error rendering file '{file}': {ex.Message}", "FenceWindow", ex);
-                    }
+                    var accentColor = GetWidgetAccentColor();
+                    var widgetContext = CreateWidgetRenderContext(e.Graphics, textColor, accentColor);
+                    var result = widgetRenderer.Render(widgetContext);
+                    scrollHeight = result.MaxScrollOffset;
+                    scrollOffset = Math.Min(scrollOffset, scrollHeight);
                 }
+                else
+                {
+                    var layoutSnapshot = CreateLayoutSnapshot();
+                    var paintState = e.Graphics.Save();
+                    e.Graphics.SetClip(new Rectangle(0, titleHeight, Width, Height - titleHeight));
 
-                scrollHeight -= (ClientRectangle.Height - titleHeight);
+                    foreach (var layoutItem in layoutSnapshot.Items)
+                    {
+                        var file = layoutItem.Value;
+                        try
+                        {
+                            var bounds = layoutItem.Bounds;
+
+                            if (file.StartsWith("task:") || file.StartsWith("clip:"))
+                            {
+                                RenderVirtualEntry(e.Graphics, file, bounds.X, bounds.Y, bounds.Width, bounds.Height, fenceInfo.IconSize, textColor);
+                            }
+                            else
+                            {
+                                var entry = FenceEntry.FromPath(file);
+                                if (entry == null)
+                                    continue;
+
+                                RenderEntry(e.Graphics, entry, bounds.X, bounds.Y, bounds.Width, bounds.Height, fenceInfo.IconSize, textColor);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.Error($"Error rendering file '{file}': {ex.Message}", "FenceWindow", ex);
+                        }
+                    }
+
+                    e.Graphics.Restore(paintState);
+
+                    scrollHeight = layoutSnapshot.GetMaxScrollOffset(ClientRectangle.Height - titleHeight);
+                    scrollOffset = Math.Min(scrollOffset, scrollHeight);
+                }
 
                 // Scroll bars
                 if (scrollHeight > 0)
                 {
                     var contentHeight = Height - titleHeight;
-                    var scrollbarHeight = contentHeight - scrollHeight;
+                    var totalContentHeight = scrollHeight + contentHeight;
+                    var scrollbarHeight = Math.Max(20, contentHeight * contentHeight / Math.Max(contentHeight, totalContentHeight));
+                    var maxThumbTravel = Math.Max(0, contentHeight - scrollbarHeight);
+                    var thumbY = titleHeight + (scrollHeight == 0 ? 0 : scrollOffset * maxThumbTravel / scrollHeight);
                     var scrollBrush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(150, borderColor));
-                    e.Graphics.FillRectangle(scrollBrush, new Rectangle(Width - 5, titleHeight + scrollOffset, 5, scrollbarHeight));
-                    scrollOffset = Math.Min(scrollOffset, scrollHeight);
+                    e.Graphics.FillRectangle(scrollBrush, new Rectangle(Width - 5, thumbY, 5, scrollbarHeight));
                 }
 
                 // Click handlers
@@ -280,6 +283,10 @@ namespace Fenceless
                                 itemToolTip.SetToolTip(this, $"[Clipboard] {parts[2]}");
                             else
                                 itemToolTip.SetToolTip(this, "[Clipboard item]");
+                        }
+                        else if (hoveringItem.StartsWith("clipimg:"))
+                        {
+                            itemToolTip.SetToolTip(this, "[Clipboard image]");
                         }
                         else if (File.Exists(hoveringItem))
                         {
@@ -372,6 +379,65 @@ namespace Fenceless
             return Color.FromArgb(alpha, baseColor.R, baseColor.G, baseColor.B);
         }
 
+        private FenceWidgetRenderContext CreateWidgetRenderContext(Graphics graphics, Color textColor, Color accentColor)
+        {
+            return new FenceWidgetRenderContext(
+                graphics,
+                ClientRectangle,
+                fenceInfo,
+                CreateWidgetSnapshot(),
+                titleHeight,
+                scrollOffset,
+                selectedItem,
+                hoveringItem,
+                titleFont,
+                iconFont,
+                iconCache,
+                textColor,
+                accentColor);
+        }
+
+        private FenceWidgetSnapshot CreateWidgetSnapshot()
+        {
+            if (fenceProvider is IWidgetDataProvider widgetDataProvider)
+                return widgetDataProvider.GetSnapshot();
+
+            var items = GetFilteredFiles()
+                .Select(value =>
+                {
+                    var entry = FenceEntryModel.FromLegacyValue(value);
+                    return new FenceWidgetItem(
+                        entry.Id,
+                        entry.Kind,
+                        entry.DisplayName,
+                        entry.Kind.ToString(),
+                        string.Empty,
+                        value,
+                        entry.Path,
+                        entry.TaskHandle,
+                        entry.ClipboardIndex,
+                        iconPath: entry.Path);
+                })
+                .ToList();
+
+            return new FenceWidgetSnapshot(fenceInfo.FenceType, items, fenceInfo.Name, status: $"{items.Count} item{(items.Count == 1 ? "" : "s")}");
+        }
+
+        private Color GetWidgetAccentColor()
+        {
+            switch (fenceInfo.FenceType)
+            {
+                case FenceType.LiveFolder:
+                    return Color.FromArgb(73, 190, 138);
+                case FenceType.RunningTasks:
+                    return Color.FromArgb(91, 156, 255);
+                case FenceType.ClipboardHistory:
+                    return Color.FromArgb(218, 151, 74);
+                default:
+                    return Color.FromArgb(fenceInfo.BorderColor);
+            }
+        }
+
         private System.Drawing.Drawing2D.GraphicsPath CreateRoundedRectanglePath(RectangleF rect, int radius, bool topOnly = false)
         {
             var path = new System.Drawing.Drawing2D.GraphicsPath();
@@ -421,92 +487,80 @@ namespace Fenceless
         {
             try
             {
-                bool isTask = entry.StartsWith("task:");
-                bool isClip = entry.StartsWith("clip:");
-
-                string displayName;
-                Icon icon;
-
-                if (isTask)
-                {
-                    displayName = RunningTasksFence.GetWindowTitle(entry);
-                    icon = SystemIcons.Application;
-                }
-                else if (isClip)
-                {
-                    var parts = entry.Split(new[] { ':' }, 3);
-                    displayName = parts.Length >= 3 ? parts[2] : "Clipboard item";
-                    icon = SystemIcons.Information;
-                }
-                else
-                {
+                var entryModel = FenceEntryModel.FromLegacyValue(entry);
+                if (entryModel.Kind != FenceEntryKind.Task && entryModel.Kind != FenceEntryKind.ClipboardText)
                     return;
-                }
+
+                var displayName = entryModel.DisplayName;
+                var icon = entryModel.Kind == FenceEntryKind.Task
+                    ? SystemIcons.Application
+                    : SystemIcons.Information;
 
                 if (string.IsNullOrEmpty(displayName))
                     displayName = "(unnamed)";
 
                 var textPosition = new PointF(x, y + iconSize + 5);
                 var textMaxSize = new SizeF(entryWidth, textHeight);
-                var stringFormat = new StringFormat { Alignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
-
-                var textSize = g.MeasureString(displayName, iconFont, textMaxSize, stringFormat);
-                var outlineRect = new Rectangle(x - 2, y - 2, entryWidth + 2, iconSize + (int)textSize.Height + 5 + 2);
-                var outlineRectInner = outlineRect.Shrink(1);
-
-                var mousePos = PointToClient(MousePosition);
-                var mouseOver = !isDraggingItem && mousePos.X >= x && mousePos.Y >= y && mousePos.X < x + outlineRect.Width && mousePos.Y < y + outlineRect.Height;
-
-                if (mouseOver)
+                using (var stringFormat = new StringFormat { Alignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter })
                 {
-                    hoveringItem = entry;
-                    hasHoverUpdated = true;
-                }
+                    var textSize = g.MeasureString(displayName, iconFont, textMaxSize, stringFormat);
+                    var outlineRect = new Rectangle(x - 2, y - 2, entryWidth + 2, iconSize + (int)textSize.Height + 5 + 2);
+                    var outlineRectInner = outlineRect.Shrink(1);
 
-                if (mouseOver && shouldUpdateSelection)
-                {
-                    selectedItem = entry;
-                    shouldUpdateSelection = false;
-                    hasSelectionUpdated = true;
-                }
+                    var mousePos = PointToClient(MousePosition);
+                    var mouseOver = !isDraggingItem && mousePos.X >= x && mousePos.Y >= y && mousePos.X < x + outlineRect.Width && mousePos.Y < y + outlineRect.Height;
 
-                if ((selectedItem == entry || selectedItems.Contains(entry)))
-                {
                     if (mouseOver)
                     {
-                        var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(180, SystemColors.ActiveBorder), 2);
-                        var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(120, SystemColors.GradientActiveCaption));
-                        g.DrawRectangle(pen, outlineRectInner);
-                        g.FillRectangle(brush, outlineRect);
+                        hoveringItem = entry;
+                        hasHoverUpdated = true;
                     }
-                    else
+
+                    if (mouseOver && shouldUpdateSelection)
                     {
-                        var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(150, SystemColors.ActiveBorder), 2);
-                        var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(100, SystemColors.GradientInactiveCaption));
+                        selectedItem = entry;
+                        shouldUpdateSelection = false;
+                        hasSelectionUpdated = true;
+                    }
+
+                    if ((selectedItem == entry || selectedItems.Contains(entry)))
+                    {
+                        if (mouseOver)
+                        {
+                            var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(180, SystemColors.ActiveBorder), 2);
+                            var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(120, SystemColors.GradientActiveCaption));
+                            g.DrawRectangle(pen, outlineRectInner);
+                            g.FillRectangle(brush, outlineRect);
+                        }
+                        else
+                        {
+                            var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(150, SystemColors.ActiveBorder), 2);
+                            var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(100, SystemColors.GradientInactiveCaption));
+                            g.DrawRectangle(pen, outlineRectInner);
+                            g.FillRectangle(brush, outlineRect);
+                        }
+                    }
+                    else if (mouseOver)
+                    {
+                        var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(120, SystemColors.ActiveBorder), 1);
+                        var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(80, SystemColors.ActiveCaption));
                         g.DrawRectangle(pen, outlineRectInner);
                         g.FillRectangle(brush, outlineRect);
                     }
-                }
-                else if (mouseOver)
-                {
-                    var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(120, SystemColors.ActiveBorder), 1);
-                    var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(80, SystemColors.ActiveCaption));
-                    g.DrawRectangle(pen, outlineRectInner);
-                    g.FillRectangle(brush, outlineRect);
-                }
 
-                var iconRect = new Rectangle(x + entryWidth / 2 - iconSize / 2, y, iconSize, iconSize);
-                g.DrawIcon(icon, iconRect);
+                    var iconRect = new Rectangle(x + entryWidth / 2 - iconSize / 2, y, iconSize, iconSize);
+                    g.DrawIcon(icon, iconRect);
 
-                if (fenceInfo.ShowShadow)
-                {
-                    var shadowBrush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(180, 15, 15, 15));
-                    g.DrawString(displayName, iconFont, shadowBrush,
-                        new RectangleF(textPosition.Move(shadowDist, shadowDist), textMaxSize), stringFormat);
+                    if (fenceInfo.ShowShadow)
+                    {
+                        var shadowBrush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(180, 15, 15, 15));
+                        g.DrawString(displayName, iconFont, shadowBrush,
+                            new RectangleF(textPosition.Move(shadowDist, shadowDist), textMaxSize), stringFormat);
+                    }
+
+                    var textBrush = GraphicsOptimizer.GetCachedBrush(textColor);
+                    g.DrawString(displayName, iconFont, textBrush, new RectangleF(textPosition, textMaxSize), stringFormat);
                 }
-
-                var textBrush = GraphicsOptimizer.GetCachedBrush(textColor);
-                g.DrawString(displayName, iconFont, textBrush, new RectangleF(textPosition, textMaxSize), stringFormat);
             }
             catch (Exception ex)
             {
@@ -530,21 +584,23 @@ namespace Fenceless
         {
             try
             {
-                var layout = FenceGridLayout.Calculate(Width, titleHeight, fenceInfo.ItemSpacing, fenceInfo.IconSize, itemWidth, textHeight);
+                var layout = FenceGridLayout.Calculate(Width, fenceInfo.ItemSpacing, fenceInfo.IconSize, itemWidth, textHeight);
                 var pos = layout.GetItemPosition(targetIndex, titleHeight, scrollOffset);
                 
                 // Simple pulsing effect without complex math
                 var pulsePhase = (Environment.TickCount / 300) % 4;
                 var alpha = pulsePhase < 2 ? 120 : 80;
                 
-                var pen = GraphicsOptimizer.GetCachedPen(Color.FromArgb(alpha, SystemColors.Highlight), 2);
                 var brush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(alpha / 8, SystemColors.Highlight));
                 var indicatorRect = new Rectangle(pos.X - 1, pos.Y - 1, layout.ActualItemWidth + 2, layout.ActualItemHeight + 2);
                 
                 g.FillRectangle(brush, indicatorRect);
-                
-                pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-                g.DrawRectangle(pen, indicatorRect);
+
+                using (var pen = new Pen(Color.FromArgb(alpha, SystemColors.Highlight), 2))
+                {
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                    g.DrawRectangle(pen, indicatorRect);
+                }
             }
             catch (Exception ex)
             {
@@ -609,8 +665,10 @@ namespace Fenceless
                 var textColor = ApplyTransparency(Color.FromArgb(fenceInfo.TextColor), fenceInfo.TextTransparency);
                 var textBrush = GraphicsOptimizer.GetCachedBrush(Color.FromArgb(180, textColor.R, textColor.G, textColor.B));
                 var textRect = new RectangleF(drawX - 20, drawY + iconSize + 2, iconSize + 40, 20);
-                var stringFormat = new StringFormat { Alignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
-                g.DrawString(entry.Name, iconFont, textBrush, textRect, stringFormat);
+                using (var stringFormat = new StringFormat { Alignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter })
+                {
+                    g.DrawString(entry.Name, iconFont, textBrush, textRect, stringFormat);
+                }
                 
                 // The icon cache manages disposal, so no need to dispose here
                 if (iconBitmap == null)

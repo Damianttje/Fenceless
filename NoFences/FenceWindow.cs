@@ -1,5 +1,6 @@
 ﻿using Fenceless.Model;
 using Fenceless.UI;
+using Fenceless.UI.Widgets;
 using Fenceless.Util;
 using Fenceless.Win32;
 using System;
@@ -51,7 +52,7 @@ namespace Fenceless
 
         // New fields for transparency and autohide
         private bool isAutoHidden = false;
-    private FormsTimer autoHideTimer;
+        private FormsTimer autoHideTimer;
         private double normalOpacity = 1.0;
         private bool isMouseInside = false;
 
@@ -65,7 +66,7 @@ namespace Fenceless
         
         // Thread-safe icon cache with automatic memory management
         private readonly IconCache iconCache = new IconCache(50);
-    private FormsTimer dragRefreshTimer;
+        private FormsTimer dragRefreshTimer;
 
         private readonly ThrottledExecution throttledMove = new ThrottledExecution(TimeSpan.FromSeconds(4));
         private readonly ThrottledExecution throttledResize = new ThrottledExecution(TimeSpan.FromSeconds(4));
@@ -75,6 +76,11 @@ namespace Fenceless
         private readonly ThumbnailProvider thumbnailProvider = new ThumbnailProvider();
 
         private IFenceProvider fenceProvider;
+        private IFenceWidgetRenderer widgetRenderer;
+        private string providerConfigurationKey = string.Empty;
+        private bool enforcingDesktopLayer;
+        private DateTime lastDesktopLayerEnforcement = DateTime.MinValue;
+        private static readonly TimeSpan DesktopLayerEnforcementInterval = TimeSpan.FromSeconds(2);
 
         private readonly ToolTip itemToolTip = new ToolTip { InitialDelay = 500, ReshowDelay = 200, AutomaticDelay = 500 };
 
@@ -111,6 +117,11 @@ namespace Fenceless
             this.FormBorderStyle = FormBorderStyle.None;
             
             InitializeComponent();
+            SetStyle(ControlStyles.UserPaint |
+                     ControlStyles.AllPaintingInWmPaint |
+                     ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.ResizeRedraw, true);
+            UpdateStyles();
             SetupEventHandlers();
             DropShadow.ApplyShadows(this);
             BlurUtil.EnableBlur(Handle);
@@ -143,6 +154,7 @@ namespace Fenceless
             
             Minify();
 
+            InitializeWidgetRenderer();
             InitializeFenceProvider();
             
             logger.Info($"Fence window '{fenceInfo.Name}' created successfully at ({fenceInfo.PosX}, {fenceInfo.PosY})", "FenceWindow");
@@ -295,6 +307,8 @@ namespace Fenceless
             {
                 ClearIconCache();
             }
+
+            ReinitializeProviderIfNeeded();
             
             // Adjust height if minified
             if (isMinified)
@@ -303,7 +317,7 @@ namespace Fenceless
                 Height = titleHeight;
             }
 
-            Refresh();
+            Invalidate();
             Save();
         }
 
@@ -438,6 +452,7 @@ namespace Fenceless
         {
             try
             {
+                providerConfigurationKey = BuildProviderConfigurationKey();
                 switch (fenceInfo.FenceType)
                 {
                     case FenceType.LiveFolder:
@@ -476,15 +491,89 @@ namespace Fenceless
             }
         }
 
+        private void InitializeWidgetRenderer()
+        {
+            switch (fenceInfo.FenceType)
+            {
+                case FenceType.LiveFolder:
+                    widgetRenderer = new LiveFolderWidgetRenderer();
+                    break;
+                case FenceType.RunningTasks:
+                    widgetRenderer = new RunningTasksWidgetRenderer();
+                    break;
+                case FenceType.ClipboardHistory:
+                    widgetRenderer = new ClipboardHistoryWidgetRenderer();
+                    break;
+                default:
+                    widgetRenderer = null;
+                    break;
+            }
+        }
+
+        private bool UsesWidgetRenderer()
+        {
+            return widgetRenderer != null;
+        }
+
+        private bool IsSelectableItem(string itemPath)
+        {
+            if (string.IsNullOrWhiteSpace(itemPath))
+                return false;
+
+            var entryModel = FenceEntryModel.FromLegacyValue(itemPath);
+            return entryModel.Kind == FenceEntryKind.Task ||
+                   entryModel.Kind == FenceEntryKind.ClipboardText ||
+                   entryModel.Kind == FenceEntryKind.ClipboardImage ||
+                   ItemExists(itemPath);
+        }
+
+        private bool CanDragFenceItems()
+        {
+            return fenceInfo.FenceType == FenceType.Standard;
+        }
+
+        private string BuildProviderConfigurationKey()
+        {
+            return string.Join("|",
+                (int)fenceInfo.FenceType,
+                fenceInfo.WatchPath ?? string.Empty,
+                fenceInfo.WatchRecursive,
+                fenceInfo.FileFilter ?? string.Empty,
+                fenceInfo.MaxItems,
+                fenceInfo.UpdateInterval,
+                fenceInfo.ShowMinimizedWindows,
+                fenceInfo.ProcessFilter ?? string.Empty,
+                fenceInfo.CaptureImages,
+                fenceInfo.ShowPreviews);
+        }
+
+        private void ReinitializeProviderIfNeeded()
+        {
+            var newKey = BuildProviderConfigurationKey();
+            if (string.Equals(newKey, providerConfigurationKey, StringComparison.Ordinal))
+                return;
+
+            try
+            {
+                fenceProvider?.Dispose();
+                fenceProvider = null;
+                InitializeWidgetRenderer();
+                InitializeFenceProvider();
+
+                if (IsHandleCreated && fenceProvider is ClipboardHistoryFence clipboardFence)
+                    clipboardFence.StartListening(Handle);
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Failed to reinitialize provider for '{fenceInfo.Name}'", "FenceWindow", ex);
+            }
+        }
+
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
-            
-            // Additional protection: Hide from Alt+Tab after handle is created
-            HideFromAltTab(Handle);
-            
-            // Prevent minimize to survive Show Desktop
-            DesktopUtil.PreventMinimize(Handle);
+
+            EnforceDesktopLayer(true);
 
             if (fenceProvider is ClipboardHistoryFence clipboardFence)
             {
@@ -526,7 +615,7 @@ namespace Fenceless
                 }
 
                 ShowWindow(Handle, SW_SHOWNOACTIVATE);
-                SendToDesktopBack();
+                EnforceDesktopLayer(true);
 
                 if (!triggeredByMonitor)
                 {
@@ -538,14 +627,42 @@ namespace Fenceless
         public void CheckVisibility()
         {
             EnsureFenceVisible(true);
+            EnforceDesktopLayer();
         }
 
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
-            DesktopUtil.GlueToDesktop(Handle);
-            SendToDesktopBack();
+            EnforceDesktopLayer(true);
             logger?.Debug($"Fence window '{fenceInfo?.Name ?? "Unknown"}' attached to desktop", "FenceWindow");
+        }
+
+        private void EnforceDesktopLayer(bool force = false)
+        {
+            if (IsDisposed || !IsHandleCreated || enforcingDesktopLayer)
+                return;
+
+            var now = DateTime.UtcNow;
+            if (!force && now - lastDesktopLayerEnforcement < DesktopLayerEnforcementInterval)
+                return;
+
+            try
+            {
+                enforcingDesktopLayer = true;
+                HideFromAltTab(Handle);
+                DesktopUtil.PreventMinimize(Handle);
+                DesktopUtil.GlueToDesktop(Handle);
+                SendToDesktopBack();
+                lastDesktopLayerEnforcement = now;
+            }
+            catch (Exception ex)
+            {
+                logger?.Error($"Failed to enforce desktop layer for fence '{fenceInfo?.Name}'", "FenceWindow", ex);
+            }
+            finally
+            {
+                enforcingDesktopLayer = false;
+            }
         }
 
         private void SendToDesktopBack()
@@ -655,9 +772,15 @@ namespace Fenceless
             // Prevent foreground
             if (m.Msg == WM_SETFOCUS)
             {
-                SendToDesktopBack();
+                EnforceDesktopLayer(true);
                 return;
             }
+
+            var shouldReinforceDesktopLayer =
+                m.Msg == WM_ACTIVATE ||
+                m.Msg == WM_ACTIVATEAPP ||
+                (m.Msg == WM_SHOWWINDOW && m.WParam != IntPtr.Zero) ||
+                m.Msg == WM_WINDOWPOSCHANGED;
 
             if (m.Msg == 0x031D) // WM_CLIPBOARDUPDATE
             {
@@ -693,6 +816,9 @@ namespace Fenceless
 
             // Other messages
             base.WndProc(ref m);
+
+            if (shouldReinforceDesktopLayer && !isAutoHidden && !IsDisposed)
+                EnforceDesktopLayer(true);
 
             // If not locked and using the left mouse button
             if (MouseButtons == MouseButtons.Right || lockedToolStripMenuItem.Checked)
@@ -827,7 +953,7 @@ namespace Fenceless
                         fenceInfo.Files[currentIndex] = fenceInfo.Files[currentIndex - 1];
                         fenceInfo.Files[currentIndex - 1] = selectedItem;
                         Save();
-                        Refresh();
+                        Invalidate();
                         logger.Debug($"Moved selected item up in fence '{fenceInfo.Name}' via keyboard", "FenceWindow");
                     }
                 }
@@ -850,7 +976,7 @@ namespace Fenceless
                         fenceInfo.Files[currentIndex] = fenceInfo.Files[currentIndex + 1];
                         fenceInfo.Files[currentIndex + 1] = selectedItem;
                         Save();
-                        Refresh();
+                        Invalidate();
                         logger.Debug($"Moved selected item down in fence '{fenceInfo.Name}' via keyboard", "FenceWindow");
                     }
                 }
@@ -957,7 +1083,7 @@ namespace Fenceless
 
         private void FenceWindow_DragEnter(object sender, DragEventArgs e)
         {
-            if (!lockedToolStripMenuItem.Checked)
+            if (CanDragFenceItems() && !lockedToolStripMenuItem.Checked)
             {
                 if (e.Data.GetDataPresent(DataFormats.FileDrop) || e.Data.GetDataPresent("FencelessItemPaths"))
                     e.Effect = DragDropEffects.Move;
@@ -966,6 +1092,9 @@ namespace Fenceless
 
         private void FenceWindow_DragDrop(object sender, DragEventArgs e)
         {
+            if (!CanDragFenceItems())
+                return;
+
             try
             {
                 var addedFiles = 0;
@@ -1010,7 +1139,7 @@ namespace Fenceless
                 {
                     logger.Info($"Added {addedFiles} files to fence '{fenceInfo.Name}'", "FenceWindow");
                     Save();
-                    Refresh();
+                    Invalidate();
                 }
             }
             catch (Exception ex)
@@ -1028,7 +1157,7 @@ namespace Fenceless
                 Save();
             });
 
-            Refresh();
+            Invalidate();
         }
 
         private void FenceWindow_MouseMove(object sender, MouseEventArgs e)
@@ -1065,7 +1194,7 @@ namespace Fenceless
             }
             
             // Check if we should start dragging
-            if (e.Button == MouseButtons.Left && !isDraggingItem && selectedItem != null && !lockedToolStripMenuItem.Checked)
+            if (CanDragFenceItems() && e.Button == MouseButtons.Left && !isDraggingItem && selectedItem != null && !lockedToolStripMenuItem.Checked)
             {
                 // Only start drag if the item still exists
                 if (ItemExists(selectedItem))
@@ -1084,14 +1213,19 @@ namespace Fenceless
                     fenceInfo.Files.Remove(selectedItem);
                     selectedItem = null;
                     Save();
-                    Refresh();
+                    Invalidate();
                 }
             }
             
             // Only refresh if not dragging to avoid excessive repaints
             if (!isDraggingItem)
             {
-                Invalidate();
+                var hoveredItem = GetItemAtPosition(e.Location);
+                if (hoveredItem != hoveringItem)
+                {
+                    hoveringItem = hoveredItem;
+                    Invalidate();
+                }
             }
         }
 
@@ -1102,7 +1236,7 @@ namespace Fenceless
                 dragStartPoint = e.Location;
                 
                 var itemPath = GetItemAtPosition(e.Location);
-                if (itemPath != null && ItemExists(itemPath))
+                if (itemPath != null && IsSelectableItem(itemPath))
                 {
                     if (ModifierKeys.HasFlag(Keys.Control))
                     {
@@ -1114,15 +1248,16 @@ namespace Fenceless
                     }
                     else if (ModifierKeys.HasFlag(Keys.Shift) && selectedItem != null)
                     {
-                        var startIdx = fenceInfo.Files.IndexOf(selectedItem);
-                        var endIdx = fenceInfo.Files.IndexOf(itemPath);
+                        var visibleFiles = GetFilteredFiles();
+                        var startIdx = visibleFiles.IndexOf(selectedItem);
+                        var endIdx = visibleFiles.IndexOf(itemPath);
                         if (startIdx >= 0 && endIdx >= 0)
                         {
                             selectedItems.Clear();
                             var min = Math.Min(startIdx, endIdx);
                             var max = Math.Max(startIdx, endIdx);
                             for (int i = min; i <= max; i++)
-                                selectedItems.Add(fenceInfo.Files[i]);
+                                selectedItems.Add(visibleFiles[i]);
                         }
                         selectedItem = itemPath;
                     }
@@ -1132,22 +1267,23 @@ namespace Fenceless
                         selectedItems.Add(itemPath);
                         selectedItem = itemPath;
                     }
-                    Refresh();
+                    Invalidate();
                 }
                 else if (itemPath != null)
                 {
                     logger.Warning($"Item no longer exists, removing from fence: {itemPath}", "FenceWindow");
-                    fenceInfo.Files.Remove(itemPath);
+                    if (fenceInfo.FenceType == FenceType.Standard)
+                        fenceInfo.Files.Remove(itemPath);
                     selectedItem = null;
                     selectedItems.Clear();
                     Save();
-                    Refresh();
+                    Invalidate();
                 }
                 else
                 {
                     selectedItem = null;
                     selectedItems.Clear();
-                    Refresh();
+                    Invalidate();
                 }
             }
         }
@@ -1176,18 +1312,18 @@ namespace Fenceless
         private void FenceWindow_MouseLeave(object sender, EventArgs e)
         {
             isMouseInside = false;
-            StartAutoHideTimer();
-            Minify();
-            
-            // Cancel drag operation if mouse leaves the window
             if (isDraggingItem)
             {
-                CancelDrag();
+                StopAutoHideTimer();
+                hoveringItem = null;
+                Invalidate();
+                return;
             }
-            
-            selectedItem = null;
-            selectedItems.Clear();
-            Refresh();
+
+            StartAutoHideTimer();
+            Minify();
+            hoveringItem = null;
+            Invalidate();
         }
 
         private void CompleteDrag(Point dropLocation)
@@ -1209,26 +1345,21 @@ namespace Fenceless
                 var currentIndex = fenceInfo.Files.IndexOf(draggingItem);
                 var targetIndex = GetGridPositionIndex(dropLocation);
                 
-                // Clamp target index to valid range
-                targetIndex = Math.Max(0, Math.Min(targetIndex, fenceInfo.Files.Count - 1));
+                targetIndex = Math.Max(0, Math.Min(targetIndex, GetFilteredFiles().Count));
                 
-                if (currentIndex != targetIndex && currentIndex >= 0)
+                if (currentIndex >= 0)
                 {
-                    // Remove item from current position
                     fenceInfo.Files.RemoveAt(currentIndex);
-                    
-                    // Adjust target index if we removed an item before it
-                    if (targetIndex > currentIndex)
-                        targetIndex--;
-                    
-                    // Insert item at new position
-                    fenceInfo.Files.Insert(targetIndex, draggingItem);
+                    var insertionIndex = GetInsertionIndexForVisibleTarget(targetIndex);
+
+                    insertionIndex = Math.Max(0, Math.Min(insertionIndex, fenceInfo.Files.Count));
+                    fenceInfo.Files.Insert(insertionIndex, draggingItem);
                     
                     // Update selection to follow the moved item
                     selectedItem = draggingItem;
                     
                     Save();
-                    logger.Info($"Moved item '{Path.GetFileName(draggingItem)}' from position {currentIndex} to {targetIndex} in fence '{fenceInfo.Name}'", "FenceWindow");
+                    logger.Info($"Moved item '{Path.GetFileName(draggingItem)}' from position {currentIndex} to {insertionIndex} in fence '{fenceInfo.Name}'", "FenceWindow");
                 }
             }
             catch (Exception ex)
@@ -1281,7 +1412,7 @@ namespace Fenceless
                 // Restore original title
                 this.Text = fenceInfo.Name;
                 
-                Refresh();
+                Invalidate();
             }
         }
 
@@ -1292,7 +1423,7 @@ namespace Fenceless
                 isMinified = true;
                 prevHeight = Height;
                 Height = titleHeight;
-                Refresh();
+                Invalidate();
             }
         }
 
@@ -1342,7 +1473,7 @@ namespace Fenceless
             if (!isDraggingItem)
             {
                 shouldUpdateSelection = true;
-                Refresh();
+                Invalidate();
             }
         }
 
@@ -1355,7 +1486,9 @@ namespace Fenceless
                 
                 if (itemPath != null && itemPath == selectedItem)
                 {
-                    if (itemPath.StartsWith("task:"))
+                    var entryModel = FenceEntryModel.FromLegacyValue(itemPath);
+
+                    if (entryModel.Kind == FenceEntryKind.Task)
                     {
                         if (RunningTasksFence.TryBringToFront(itemPath))
                         {
@@ -1363,13 +1496,12 @@ namespace Fenceless
                             return;
                         }
                     }
-                    else if (itemPath.StartsWith("clip:"))
+                    else if (entryModel.Kind == FenceEntryKind.ClipboardText)
                     {
-                        var parts = itemPath.Split(new[] { ':' }, 3);
-                        if (parts.Length >= 2 && int.TryParse(parts[1], out int index))
+                        if (entryModel.ClipboardIndex.HasValue)
                         {
                             var clipboardFence = fenceProvider as ClipboardHistoryFence;
-                            var text = clipboardFence?.GetClipboardText(index);
+                            var text = clipboardFence?.GetClipboardText(entryModel.ClipboardIndex.Value);
                             if (text != null)
                             {
                                 try { Clipboard.SetText(text); }
@@ -1379,7 +1511,21 @@ namespace Fenceless
                             }
                         }
                     }
-                    else if (ItemExists(itemPath))
+                    else if (entryModel.Kind == FenceEntryKind.ClipboardImage)
+                    {
+                        if (entryModel.ClipboardIndex.HasValue && fenceProvider is ClipboardHistoryFence clipboardFence)
+                        {
+                            var image = clipboardFence.GetClipboardImage(entryModel.ClipboardIndex.Value);
+                            if (image != null)
+                            {
+                                try { Clipboard.SetImage(new Bitmap(image)); }
+                                catch { }
+                                logger.Info($"Copied clipboard image history item to clipboard in fence '{fenceInfo.Name}'", "FenceWindow");
+                                return;
+                            }
+                        }
+                    }
+                    else if (entryModel.Kind == FenceEntryKind.File || entryModel.Kind == FenceEntryKind.Folder)
                     {
                         var entry = FenceEntry.FromPath(itemPath);
                         if (entry != null)
@@ -1389,13 +1535,13 @@ namespace Fenceless
                             return;
                         }
                     }
-                    else if (!itemPath.StartsWith("task:") && !itemPath.StartsWith("clip:"))
+                    else
                     {
                         logger.Warning($"Double-clicked item no longer exists, removing: {itemPath}", "FenceWindow");
                         fenceInfo.Files.Remove(itemPath);
                         selectedItem = null;
                         Save();
-                        Refresh();
+                        Invalidate();
                     }
                 }
             }
@@ -1408,7 +1554,7 @@ namespace Fenceless
             {
                 Text = dialog.InputText;
                 fenceInfo.Name = Text;
-                Refresh();
+                Invalidate();
                 Save();
             }
         }
@@ -1489,6 +1635,9 @@ namespace Fenceless
                 fenceInfo.ShowMinimizedWindows = updatedInfo.ShowMinimizedWindows;
                 fenceInfo.ProcessFilter = updatedInfo.ProcessFilter;
                 fenceInfo.CaptureImages = updatedInfo.CaptureImages;
+                fenceInfo.WidgetDisplayMode = updatedInfo.WidgetDisplayMode;
+                fenceInfo.WidgetDensity = updatedInfo.WidgetDensity;
+                fenceInfo.ShowPreviews = updatedInfo.ShowPreviews;
                 
                 logger.Info($"Fence info updated for '{fenceInfo.Name}'", "FenceWindow");
             }
@@ -1503,6 +1652,7 @@ namespace Fenceless
         {
             ShowFence();
             StopAutoHideTimer();
+            EnforceDesktopLayer(true);
         }
 
         public void ForceHide()
@@ -1579,10 +1729,8 @@ namespace Fenceless
             {
                 logger.Debug($"Highlighting fence '{fenceInfo.Name}'", "FenceWindow");
                 
-                // Bring the fence to front and show it
                 ForceShow();
-                this.BringToFront();
-                this.Focus();
+                EnforceDesktopLayer(true);
                 
                 // Create a highlight effect by temporarily changing the border
                 var originalOpacity = this.Opacity;
@@ -1707,7 +1855,7 @@ namespace Fenceless
             {
                 logger.Info($"Cleaned up {removedCount} invalid items from fence '{fenceInfo.Name}' on load", "FenceWindow");
                 Save();
-                Refresh();
+                Invalidate();
             }
         }
 
@@ -1935,78 +2083,54 @@ namespace Fenceless
 
         #region Internal Drag and Drop
 
-        private struct FenceGridLayout
+        private string? GetItemAtPosition(Point position)
         {
-            public int ItemSpacing;
-            public int ActualItemWidth;
-            public int ActualItemHeight;
-            public int ItemsPerRow;
-
-            public static FenceGridLayout Calculate(int clientWidth, int titleHeightVal, int itemSpacing, int iconSize, int baseItemWidth, int baseTextHeight)
+            if (UsesWidgetRenderer())
             {
-                var actualItemWidth = Math.Max(iconSize + 10, baseItemWidth);
-                var actualItemHeight = iconSize + baseTextHeight + 10;
-                var itemsPerRow = Math.Max(1, (clientWidth - itemSpacing) / (actualItemWidth + itemSpacing));
-
-                return new FenceGridLayout
-                {
-                    ItemSpacing = itemSpacing,
-                    ActualItemWidth = actualItemWidth,
-                    ActualItemHeight = actualItemHeight,
-                    ItemsPerRow = itemsPerRow
-                };
+                var textColor = ApplyTransparency(Color.FromArgb(fenceInfo.TextColor), fenceInfo.TextTransparency);
+                var context = CreateWidgetRenderContext(null, textColor, GetWidgetAccentColor());
+                return widgetRenderer.HitTest(context, position);
             }
 
-            public Point GetItemPosition(int index, int titleHeightVal, int scrollOffsetVal)
-            {
-                var row = index / ItemsPerRow;
-                var col = index % ItemsPerRow;
-                var x = ItemSpacing + col * (ActualItemWidth + ItemSpacing);
-                var y = ItemSpacing + row * (ActualItemHeight + ItemSpacing) + titleHeightVal - scrollOffsetVal;
-                return new Point(x, y);
-            }
-
-            public int GetGridIndex(Point position, int titleHeightVal, int scrollOffsetVal, int maxItems)
-            {
-                var contentY = position.Y - titleHeightVal + scrollOffsetVal;
-                var row = Math.Max(0, (contentY - ItemSpacing) / (ActualItemHeight + ItemSpacing));
-                var col = Math.Max(0, (position.X - ItemSpacing) / (ActualItemWidth + ItemSpacing));
-                col = Math.Min(col, ItemsPerRow - 1);
-                var index = (int)(row * ItemsPerRow + col);
-                return Math.Min(index, maxItems);
-            }
-        }
-
-        private string GetItemAtPosition(Point position)
-        {
-            var layout = FenceGridLayout.Calculate(Width, titleHeight, fenceInfo.ItemSpacing, fenceInfo.IconSize, itemWidth, textHeight);
-            var x = layout.ItemSpacing;
-            var y = layout.ItemSpacing;
-            
-            foreach (var file in fenceInfo.Files)
-            {
-                var itemRect = new Rectangle(x, y + titleHeight - scrollOffset, layout.ActualItemWidth, layout.ActualItemHeight);
-                
-                if (itemRect.Contains(position))
-                {
-                    return file;
-                }
-
-                x += layout.ActualItemWidth + layout.ItemSpacing;
-                if (x + layout.ActualItemWidth > Width)
-                {
-                    x = layout.ItemSpacing;
-                    y += layout.ActualItemHeight + layout.ItemSpacing;
-                }
-            }
-            
-            return null;
+            return CreateLayoutSnapshot().HitTest(position);
         }
 
         private int GetGridPositionIndex(Point position)
         {
-            var layout = FenceGridLayout.Calculate(Width, titleHeight, fenceInfo.ItemSpacing, fenceInfo.IconSize, itemWidth, textHeight);
-            return layout.GetGridIndex(position, titleHeight, scrollOffset, fenceInfo.Files.Count);
+            return CreateLayoutSnapshot().GetTargetIndex(position, titleHeight, scrollOffset);
+        }
+
+        private int GetInsertionIndexForVisibleTarget(int targetIndex)
+        {
+            var visibleFiles = GetFilteredFiles()
+                .Where(file => file != draggingItem)
+                .ToList();
+
+            if (visibleFiles.Count == 0)
+                return fenceInfo.Files.Count;
+
+            if (targetIndex >= visibleFiles.Count)
+            {
+                var lastVisibleIndex = fenceInfo.Files.IndexOf(visibleFiles[visibleFiles.Count - 1]);
+                return lastVisibleIndex >= 0 ? lastVisibleIndex + 1 : fenceInfo.Files.Count;
+            }
+
+            var targetItem = visibleFiles[targetIndex];
+            var targetActualIndex = fenceInfo.Files.IndexOf(targetItem);
+            return targetActualIndex >= 0 ? targetActualIndex : fenceInfo.Files.Count;
+        }
+
+        private FenceItemLayoutSnapshot CreateLayoutSnapshot()
+        {
+            return FenceItemLayoutSnapshot.Create(
+                GetFilteredFiles(),
+                Width,
+                titleHeight,
+                scrollOffset,
+                fenceInfo.ItemSpacing,
+                fenceInfo.IconSize,
+                itemWidth,
+                textHeight);
         }
 
         private void StartItemDrag(string itemPath, Point startLocation)
@@ -2017,7 +2141,7 @@ namespace Fenceless
                 fenceInfo.Files.Remove(itemPath);
                 selectedItem = null;
                 Save();
-                Refresh();
+                Invalidate();
                 return;
             }
             
@@ -2025,16 +2149,9 @@ namespace Fenceless
             draggingItem = itemPath;
             dragCurrentPoint = startLocation;
             this.Cursor = Cursors.Hand;
+            dragTargetIndex = GetGridPositionIndex(startLocation);
             this.Text = $"{fenceInfo.Name} - Dragging {Path.GetFileName(itemPath)}";
-            
-            try
-            {
-                var paths = selectedItems.Count > 1
-                    ? string.Join("\n", selectedItems)
-                    : itemPath;
-                this.DoDragDrop(new DataObject("FencelessItemPaths", paths), DragDropEffects.Move);
-            }
-            catch { }
+            Invalidate();
             
             logger.Debug($"Started dragging item '{Path.GetFileName(itemPath)}' in fence '{fenceInfo.Name}'", "FenceWindow");
         }

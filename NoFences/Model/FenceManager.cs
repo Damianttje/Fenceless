@@ -196,24 +196,14 @@ namespace Fenceless.Model
             alt = false;
             shift = false;
 
-            if (string.IsNullOrWhiteSpace(shortcut))
+            if (!ShortcutParser.TryParse(shortcut, out var parsed))
                 return false;
 
-            var parts = shortcut.Split('+');
-            foreach (var part in parts)
-            {
-                var trimmed = part.Trim();
-                if (trimmed.Equals("Ctrl", StringComparison.OrdinalIgnoreCase))
-                    ctrl = true;
-                else if (trimmed.Equals("Alt", StringComparison.OrdinalIgnoreCase))
-                    alt = true;
-                else if (trimmed.Equals("Shift", StringComparison.OrdinalIgnoreCase))
-                    shift = true;
-                else if (Enum.TryParse<Keys>(trimmed, true, out var parsedKey))
-                    key = parsedKey;
-            }
-
-            return key != Keys.None;
+            key = parsed.Key;
+            ctrl = parsed.Ctrl;
+            alt = parsed.Alt;
+            shift = parsed.Shift;
+            return true;
         }
 
         public void LoadFences()

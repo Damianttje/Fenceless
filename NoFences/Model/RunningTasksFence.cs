@@ -9,11 +9,13 @@ using Fenceless.Util;
 
 namespace Fenceless.Model
 {
-    public class RunningTasksFence : IFenceProvider
+    public class RunningTasksFence : IFenceProvider, IWidgetDataProvider
     {
         private readonly FenceInfo fenceInfo;
         private readonly Logger logger;
+        private readonly object snapshotLock = new object();
         private Timer pollTimer;
+        private FenceWidgetSnapshot snapshot;
         private bool disposed;
 
         public event Action ItemsChanged;
@@ -52,6 +54,7 @@ namespace Fenceless.Model
         {
             this.fenceInfo = fenceInfo;
             logger = Logger.Instance;
+            snapshot = FenceWidgetSnapshot.Empty(FenceType.RunningTasks, fenceInfo.Name, "No windows found");
 
             int interval = fenceInfo.UpdateInterval > 0 ? fenceInfo.UpdateInterval : 3000;
             pollTimer = new Timer(PollWindows, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(interval));
@@ -64,8 +67,9 @@ namespace Fenceless.Model
         {
             try
             {
-                var windows = new List<(IntPtr Hwnd, string Title)>();
+                var windows = new List<WindowInfo>();
                 var processFilter = fenceInfo.ProcessFilter;
+                var currentProcessId = Process.GetCurrentProcess().Id;
 
                 EnumWindows((hWnd, lParam) =>
                 {
@@ -83,24 +87,32 @@ namespace Fenceless.Model
 
                         if (string.IsNullOrWhiteSpace(title)) return true;
 
-                        if (!fenceInfo.ShowMinimizedWindows && IsIconic(hWnd)) return true;
+                        var minimized = IsIconic(hWnd);
+                        if (!fenceInfo.ShowMinimizedWindows && minimized) return true;
+
+                        GetWindowThreadProcessId(hWnd, out uint processId);
+                        if (processId == currentProcessId) return true;
+
+                        string processName = "Unknown";
+                        string iconPath = string.Empty;
+                        try
+                        {
+                            var process = Process.GetProcessById((int)processId);
+                            processName = process.ProcessName;
+                            try { iconPath = process.MainModule?.FileName ?? string.Empty; }
+                            catch { }
+                        }
+                        catch
+                        {
+                        }
 
                         if (!string.IsNullOrEmpty(processFilter))
                         {
-                            GetWindowThreadProcessId(hWnd, out uint processId);
-                            try
-                            {
-                                var process = Process.GetProcessById((int)processId);
-                                if (process.ProcessName.IndexOf(processFilter, StringComparison.OrdinalIgnoreCase) < 0)
-                                    return true;
-                            }
-                            catch
-                            {
+                            if (processName.IndexOf(processFilter, StringComparison.OrdinalIgnoreCase) < 0)
                                 return true;
-                            }
                         }
 
-                        windows.Add((hWnd, title));
+                        windows.Add(new WindowInfo(hWnd, title, processName, iconPath, (int)processId, minimized));
                     }
                     catch
                     {
@@ -112,13 +124,41 @@ namespace Fenceless.Model
                 if (fenceInfo.MaxItems > 0 && windows.Count > fenceInfo.MaxItems)
                     windows = windows.Take(fenceInfo.MaxItems).ToList();
 
+                var oldSignature = string.Join("|", fenceInfo.Files);
                 fenceInfo.Files.Clear();
-                foreach (var (hwnd, title) in windows)
+                var widgetItems = new List<FenceWidgetItem>(windows.Count);
+                foreach (var window in windows)
                 {
-                    fenceInfo.Files.Add($"task:{hwnd.ToInt64()}:{title}");
+                    var legacyValue = $"task:{window.Hwnd.ToInt64()}:{window.Title}";
+                    fenceInfo.Files.Add(legacyValue);
+                    widgetItems.Add(new FenceWidgetItem(
+                        legacyValue,
+                        FenceEntryKind.Task,
+                        window.Title,
+                        window.ProcessName,
+                        window.IsMinimized ? "Minimized" : "Running",
+                        legacyValue,
+                        taskHandle: window.Hwnd,
+                        isMinimized: window.IsMinimized,
+                        iconPath: window.IconPath));
                 }
 
-                ItemsChanged?.Invoke();
+                lock (snapshotLock)
+                {
+                    snapshot = new FenceWidgetSnapshot(
+                        FenceType.RunningTasks,
+                        widgetItems,
+                        fenceInfo.Name,
+                        string.IsNullOrEmpty(processFilter) ? "All visible windows" : $"Filter: {processFilter}",
+                        $"{widgetItems.Count} window{(widgetItems.Count == 1 ? "" : "s")}",
+                        DateTime.Now);
+                }
+
+                var newSignature = string.Join("|", fenceInfo.Files);
+                if (!string.Equals(oldSignature, newSignature, StringComparison.Ordinal))
+                {
+                    ItemsChanged?.Invoke();
+                }
             }
             catch (Exception ex)
             {
@@ -129,6 +169,14 @@ namespace Fenceless.Model
         public void Refresh()
         {
             PollWindows(null);
+        }
+
+        public FenceWidgetSnapshot GetSnapshot()
+        {
+            lock (snapshotLock)
+            {
+                return snapshot;
+            }
         }
 
         public static bool TryBringToFront(string entry)
@@ -165,6 +213,26 @@ namespace Fenceless.Model
             disposed = true;
             pollTimer?.Dispose();
             logger.Debug($"Disposed RunningTasks fence '{fenceInfo.Name}'", "RunningTasksFence");
+        }
+
+        private sealed class WindowInfo
+        {
+            public WindowInfo(IntPtr hwnd, string title, string processName, string iconPath, int processId, bool isMinimized)
+            {
+                Hwnd = hwnd;
+                Title = title;
+                ProcessName = processName;
+                IconPath = iconPath;
+                ProcessId = processId;
+                IsMinimized = isMinimized;
+            }
+
+            public IntPtr Hwnd { get; }
+            public string Title { get; }
+            public string ProcessName { get; }
+            public string IconPath { get; }
+            public int ProcessId { get; }
+            public bool IsMinimized { get; }
         }
     }
 }

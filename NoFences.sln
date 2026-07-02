@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.36414.22
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fenceless", "NoFences\Fenceless.csproj", "{9B7EC27E-0066-4455-987C-6DC88C4BEE54}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fenceless.Tests", "Fenceless.Tests\Fenceless.Tests.csproj", "{24E62870-2E31-4FA1-A814-93B7A34CE55F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{9B7EC27E-0066-4455-987C-6DC88C4BEE54}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9B7EC27E-0066-4455-987C-6DC88C4BEE54}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9B7EC27E-0066-4455-987C-6DC88C4BEE54}.Release|Any CPU.Build.0 = Release|Any CPU
+		{24E62870-2E31-4FA1-A814-93B7A34CE55F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{24E62870-2E31-4FA1-A814-93B7A34CE55F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{24E62870-2E31-4FA1-A814-93B7A34CE55F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{24E62870-2E31-4FA1-A814-93B7A34CE55F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
