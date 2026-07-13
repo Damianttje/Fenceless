@@ -366,3 +366,28 @@ FodyWeavers.xsd
 # Rider
 .idea/
 CRUSH.md
+# Build / dev artifacts
+bin/
+obj/
+out/
+lib/
+.shards/
+build/
+dist/
+.next/
+.nuxt/
+.output/
+.turbo/
+.cache/
+.svelte-kit/
+.parcel-cache/
+vendor/
+target/
+.dart_tool/
+coverage/
+TestResults/
+cmake-build-debug/
+cmake-build-release/
+.DS_Store
+Thumbs.db
+.factory/
