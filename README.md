@@ -1,3 +1,7 @@
+> [!WARNING]
+> ### Project Archived
+> **Fenceless** is no longer maintained. It will not receive any further updates, bug fixes, or security patches.
+
 # Fenceless
 
 Fenceless is a Windows desktop organization tool for grouping files, folders, and live widgets into movable transparent containers called fences.
